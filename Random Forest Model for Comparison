@@ -1,0 +1,584 @@
+# random forest model b - cluster 1 using raw delay only
+
+# import libraries
+
+import pandas as pd
+import numpy as np
+import joblib
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+# load one cluster 1 file
+df_cluster1 = pd.read_csv(r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\nov_2018_cluster1.csv")
+
+# rename columns if needed
+df_cluster1 = df_cluster1.rename(columns={
+    "Delay_time (minutes)": "Delay_time_minutes"
+})
+
+# define features and target
+feature_cols = [
+    "Platform_scaled_distance",
+    "Departure_time_score",
+    "Pop_density_score",
+    "Delay_time_minutes"
+]
+
+target_col = "SSS_score"
+
+# keep only relevant columns
+df_cluster1 = df_cluster1[feature_cols + [target_col]]
+
+# remove missing values
+df_cluster1 = df_cluster1.dropna()
+
+# define X and y
+X = df_cluster1[feature_cols]
+y = df_cluster1[target_col]
+
+# train test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42
+)
+
+# train random forest model
+rf_cluster1_model_b = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=None,
+    random_state=42
+)
+
+rf_cluster1_model_b.fit(X_train, y_train)
+
+# make predictions
+y_pred = rf_cluster1_model_b.predict(X_test)
+
+# evaluate model
+mae = mean_absolute_error(y_test, y_pred)
+rmse = mean_squared_error(y_test, y_pred) ** 0.5
+r2 = r2_score(y_test, y_pred)
+
+print("cluster 1 random forest model b results")
+print("mae:", mae)
+print("rmse:", rmse)
+print("r2:", r2)
+
+# feature importance
+feature_importance_cluster1_model_b = pd.DataFrame({
+    "feature": feature_cols,
+    "importance": rf_cluster1_model_b.feature_importances_
+}).sort_values(by="importance", ascending=False)
+
+print(feature_importance_cluster1_model_b)
+
+# save model
+joblib.dump(rf_cluster1_model_b, "rf_cluster_1_model_b_raw_delay.pkl")
+
+print("saved: rf_cluster_1_model_b_raw_delay.pkl")
+
+# random forest model - cluster 1 final realistic version
+
+# import libraries
+
+import pandas as pd
+import numpy as np
+import joblib
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+# set path
+base_path = r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed"
+file_path = base_path + r"\nov_2018_cluster1.csv"
+
+# load data
+df_cluster1 = pd.read_csv(file_path)
+
+# rename delay column if needed
+df_cluster1 = df_cluster1.rename(columns={
+    "Delay_time (minutes)": "Delay_time_minutes"
+})
+
+# create positive delay variable
+df_cluster1["Delay_time_minutes_positive"] = df_cluster1["Delay_time_minutes"].clip(lower=0)
+
+# create nonlinear delay effect
+df_cluster1["delay_effect"] = np.log1p(df_cluster1["Delay_time_minutes_positive"])
+
+# normalize delay effect to 1-5
+df_cluster1["delay_effect"] = 1 + 4 * (
+    (df_cluster1["delay_effect"] - df_cluster1["delay_effect"].min()) /
+    (df_cluster1["delay_effect"].max() - df_cluster1["delay_effect"].min())
+)
+
+# add realistic delay perception noise
+np.random.seed(42)
+df_cluster1["delay_effect"] = df_cluster1["delay_effect"] + np.random.normal(
+    0, 0.4, len(df_cluster1)
+)
+
+
+# keep delay effect within 1-5
+df_cluster1["delay_effect"] = df_cluster1["delay_effect"].clip(1, 5)
+
+# create crowding-delay interaction
+df_cluster1["crowding_delay_interaction"] = (
+    df_cluster1["Pop_density_score"] * df_cluster1["Delay_time_minutes_positive"]
+)
+
+# calculate realistic cluster 1 sss
+df_cluster1["SSS_score_realistic"] = (
+    0.35 * df_cluster1["Pop_density_score"] +
+    0.25 * df_cluster1["Departure_time_score"] +
+    0.30 * df_cluster1["Platform_scaled_distance"] +
+    0.10 * df_cluster1["delay_effect"] +
+    0.02 * df_cluster1["crowding_delay_interaction"]
+)
+
+# define features and target
+feature_cols = [
+    "Platform_scaled_distance",
+    "Departure_time_score",
+    "Pop_density_score",
+    "Delay_time_minutes",
+    "crowding_delay_interaction"
+]
+
+target_col = "SSS_score_realistic"
+
+# keep only relevant columns
+df_cluster1 = df_cluster1[feature_cols + [target_col]]
+
+# remove missing values
+df_cluster1 = df_cluster1.dropna()
+
+# define x and y
+X = df_cluster1[feature_cols]
+y = df_cluster1[target_col]
+
+# train test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42
+)
+
+# train random forest model
+rf_cluster1_realistic_final = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=None,
+    random_state=42
+)
+
+rf_cluster1_realistic_final.fit(X_train, y_train)
+
+# make predictions
+y_pred = rf_cluster1_realistic_final.predict(X_test)
+
+# evaluate model
+mae = mean_absolute_error(y_test, y_pred)
+rmse = mean_squared_error(y_test, y_pred) ** 0.5
+r2 = r2_score(y_test, y_pred)
+
+print("cluster 1 realistic random forest final results")
+print("mae:", mae)
+print("rmse:", rmse)
+print("r2:", r2)
+
+# feature importance
+feature_importance_cluster1_realistic_final = pd.DataFrame({
+    "feature": feature_cols,
+    "importance": rf_cluster1_realistic_final.feature_importances_
+}).sort_values(by="importance", ascending=False)
+
+print(feature_importance_cluster1_realistic_final)
+
+# save realistic dataset and model
+df_cluster1.to_csv("cluster_1_realistic_final_rf_dataset.csv", index=False)
+joblib.dump(rf_cluster1_realistic_final, "rf_cluster_1_realistic_final_model.pkl")
+
+print("saved: cluster_1_realistic_final_rf_dataset.csv")
+print("saved: rf_cluster_1_realistic_final_model.pkl")
+
+# random forest model - cluster 1 using all historical data (pure version)
+
+# import libraries
+import pandas as pd
+import numpy as np
+import joblib
+import glob
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+# set base path
+base_path = r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed"
+
+# load all cluster 1 csv files
+files = glob.glob(base_path + r"\*cluster1*.csv")
+
+dfs = []
+for f in files:
+    df = pd.read_csv(f)
+    dfs.append(df)
+
+# combine into one dataframe
+df_cluster1 = pd.concat(dfs, ignore_index=True)
+
+# rename delay column if needed
+df_cluster1 = df_cluster1.rename(columns={
+    "Delay_time (minutes)": "Delay_time_minutes"
+})
+
+# define features and target
+feature_cols = [
+    "Platform_scaled_distance",
+    "Departure_time_score",
+    "Pop_density_score",
+    "Delay_time_score",
+    "Delay_time_minutes"
+]
+
+target_col = "SSS_score"
+
+# keep only relevant columns
+df_cluster1 = df_cluster1[feature_cols + [target_col]]
+
+# remove missing values
+df_cluster1 = df_cluster1.dropna()
+
+# define X and y
+X = df_cluster1[feature_cols]
+y = df_cluster1[target_col]
+
+# train test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42
+)
+
+# train random forest model
+rf_cluster1 = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=None,
+    random_state=42
+)
+
+rf_cluster1.fit(X_train, y_train)
+
+# make predictions
+y_pred = rf_cluster1.predict(X_test)
+
+# evaluate model
+mae = mean_absolute_error(y_test, y_pred)
+rmse = mean_squared_error(y_test, y_pred) ** 0.5
+r2 = r2_score(y_test, y_pred)
+
+print("cluster 1 random forest results (all data)")
+print("mae:", mae)
+print("rmse:", rmse)
+print("r2:", r2)
+
+# feature importance
+feature_importance_cluster1 = pd.DataFrame({
+    "feature": feature_cols,
+    "importance": rf_cluster1.feature_importances_
+}).sort_values(by="importance", ascending=False)
+
+print(feature_importance_cluster1)
+
+# save model
+joblib.dump(rf_cluster1, "rf_cluster_1_all_data_model.pkl")
+
+print("saved: rf_cluster_1_all_data_model.pkl")
+
+print(len(df_cluster1))
+print(df_cluster1.describe())
+
+# random forest model - cluster 1 original (pure SSS features only)
+
+# import libraries
+import pandas as pd
+import joblib
+import glob
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+# set base path
+base_path = r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed"
+
+# load all cluster 1 csv files
+files = glob.glob(base_path + r"\*cluster1*.csv")
+
+dfs = []
+for f in files:
+    df = pd.read_csv(f)
+    dfs.append(df)
+
+# combine all data
+df_cluster1 = pd.concat(dfs, ignore_index=True)
+
+# define ORIGINAL features only
+feature_cols = [
+    "Platform_scaled_distance",
+    "Departure_time_score",
+    "Pop_density_score",
+    "Delay_time_score"
+]
+
+target_col = "SSS_score"
+
+# keep only relevant columns
+df_cluster1 = df_cluster1[feature_cols + [target_col]]
+
+# remove missing values
+df_cluster1 = df_cluster1.dropna()
+
+# define X and y
+X = df_cluster1[feature_cols]
+y = df_cluster1[target_col]
+
+# train test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42
+)
+
+# train random forest model
+rf_cluster1 = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=None,
+    random_state=42
+)
+
+rf_cluster1.fit(X_train, y_train)
+
+# make predictions
+y_pred = rf_cluster1.predict(X_test)
+
+# evaluate model
+mae = mean_absolute_error(y_test, y_pred)
+rmse = mean_squared_error(y_test, y_pred) ** 0.5
+r2 = r2_score(y_test, y_pred)
+
+print("cluster 1 random forest results (pure original)")
+print("mae:", mae)
+print("rmse:", rmse)
+print("r2:", r2)
+
+# feature importance
+feature_importance_cluster1 = pd.DataFrame({
+    "feature": feature_cols,
+    "importance": rf_cluster1.feature_importances_
+}).sort_values(by="importance", ascending=False)
+
+print(feature_importance_cluster1)
+
+# save model
+joblib.dump(rf_cluster1, "rf_cluster_1_original_model.pkl")
+
+print("saved: rf_cluster_1_original_model.pkl")
+
+df_cluster1.describe()
+
+# random forest model - cluster 2 original 
+
+# load all cluster 2 csv files
+files = glob.glob(base_path + r"\*cluster2*.csv")
+
+dfs = []
+for f in files:
+    df = pd.read_csv(f)
+    dfs.append(df)
+
+df_cluster2 = pd.concat(dfs, ignore_index=True)
+
+# define original features only
+feature_cols = [
+    "Platform_scaled_distance",
+    "Departure_time_score",
+    "Pop_density_score",
+    "Delay_time_score"
+]
+
+target_col = "SSS_score"
+
+df_cluster2 = df_cluster2[feature_cols + [target_col]]
+df_cluster2 = df_cluster2.dropna()
+
+X = df_cluster2[feature_cols]
+y = df_cluster2[target_col]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42
+)
+
+rf_cluster2 = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=None,
+    random_state=42
+)
+
+rf_cluster2.fit(X_train, y_train)
+
+y_pred = rf_cluster2.predict(X_test)
+
+mae = mean_absolute_error(y_test, y_pred)
+rmse = mean_squared_error(y_test, y_pred) ** 0.5
+r2 = r2_score(y_test, y_pred)
+
+print("cluster 2 random forest results (pure original)")
+print("mae:", mae)
+print("rmse:", rmse)
+print("r2:", r2)
+
+feature_importance_cluster2 = pd.DataFrame({
+    "feature": feature_cols,
+    "importance": rf_cluster2.feature_importances_
+}).sort_values(by="importance", ascending=False)
+
+print(feature_importance_cluster2)
+
+joblib.dump(rf_cluster2, "rf_cluster_2_original_model.pkl")
+
+print("saved: rf_cluster_2_original_model.pkl")
+
+# random forest model - cluster 3 original 
+
+# load all cluster 3 csv files
+files = glob.glob(base_path + r"\*cluster3*.csv")
+
+dfs = []
+for f in files:
+    df = pd.read_csv(f)
+    dfs.append(df)
+
+df_cluster3 = pd.concat(dfs, ignore_index=True)
+
+# define original features only
+feature_cols = [
+    "Platform_scaled_distance",
+    "Departure_time_score",
+    "Pop_density_score",
+    "Delay_time_score"
+]
+
+target_col = "SSS_score"
+
+df_cluster3 = df_cluster3[feature_cols + [target_col]]
+df_cluster3 = df_cluster3.dropna()
+
+X = df_cluster3[feature_cols]
+y = df_cluster3[target_col]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42
+)
+
+rf_cluster3 = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=None,
+    random_state=42
+)
+
+rf_cluster3.fit(X_train, y_train)
+
+y_pred = rf_cluster3.predict(X_test)
+
+mae = mean_absolute_error(y_test, y_pred)
+rmse = mean_squared_error(y_test, y_pred) ** 0.5
+r2 = r2_score(y_test, y_pred)
+
+print("cluster 3 random forest results (pure original)")
+print("mae:", mae)
+print("rmse:", rmse)
+print("r2:", r2)
+
+feature_importance_cluster3 = pd.DataFrame({
+    "feature": feature_cols,
+    "importance": rf_cluster3.feature_importances_
+}).sort_values(by="importance", ascending=False)
+
+print(feature_importance_cluster3)
+
+joblib.dump(rf_cluster3, "rf_cluster_3_original_model.pkl")
+
+print("saved: rf_cluster_3_original_model.pkl")
+
+# random forest model - cluster 4 original 
+
+# load all cluster 4 csv files
+files = glob.glob(base_path + r"\*cluster4*.csv")
+
+dfs = []
+for f in files:
+    df = pd.read_csv(f)
+    dfs.append(df)
+
+df_cluster4 = pd.concat(dfs, ignore_index=True)
+
+# define original features only
+feature_cols = [
+    "Platform_scaled_distance",
+    "Departure_time_score",
+    "Pop_density_score",
+    "Delay_time_score"
+]
+
+target_col = "SSS_score"
+
+df_cluster4 = df_cluster4[feature_cols + [target_col]]
+df_cluster4 = df_cluster4.dropna()
+
+X = df_cluster4[feature_cols]
+y = df_cluster4[target_col]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42
+)
+
+rf_cluster4 = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=None,
+    random_state=42
+)
+
+rf_cluster4.fit(X_train, y_train)
+
+y_pred = rf_cluster4.predict(X_test)
+
+mae = mean_absolute_error(y_test, y_pred)
+rmse = mean_squared_error(y_test, y_pred) ** 0.5
+r2 = r2_score(y_test, y_pred)
+
+print("cluster 4 random forest results (pure original)")
+print("mae:", mae)
+print("rmse:", rmse)
+print("r2:", r2)
+
+feature_importance_cluster4 = pd.DataFrame({
+    "feature": feature_cols,
+    "importance": rf_cluster4.feature_importances_
+}).sort_values(by="importance", ascending=False)
+
+print(feature_importance_cluster4)
+
+joblib.dump(rf_cluster4, "rf_cluster_4_original_model.pkl")
+
+print("saved: rf_cluster_4_original_model.pkl")
