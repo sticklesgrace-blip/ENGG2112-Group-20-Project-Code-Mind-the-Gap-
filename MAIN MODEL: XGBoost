@@ -1,0 +1,236 @@
+pip install graphviz
+
+import pandas as pd
+import numpy as np
+import joblib
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error, PredictionErrorDisplay
+from xgboost import XGBRegressor, plot_importance, plot_tree
+
+# =========================
+# 1. LOAD DATA
+# =========================
+
+df1 = pd.read_csv(r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\Cluster 1 Combined.csv", sep = ";")
+df2 = pd.read_csv(r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\Cluster 2 Combined.csv", sep = ";")
+df3 = pd.read_csv(r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\Cluster 3 Combined.csv", sep = ";")
+df4 = pd.read_csv(r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\Cluster 4 Combined.csv", sep = ";")
+
+# Add cluster labels manually
+df1["Cluster"] = "Cluster 1"
+df2["Cluster"] = "Cluster 2"
+df3["Cluster"] = "Cluster 3"
+df4["Cluster"] = "Cluster 4"
+
+# Combine all clusters
+df = pd.concat([df1, df2, df3, df4], ignore_index=True)
+
+print("Initial shape:", df.shape)
+print(df.columns)
+
+# =========================
+# 2. CLEAN DATA
+# =========================
+
+feature_cols = [
+    "Platform_raw_distance",
+    "Time_of_departure",
+    "Pop_density_score",
+    "Delay_time (minutes)",
+    "Cluster"
+]
+
+target_col = "SSS_score"
+
+numeric_cols = [
+    "Platform_raw_distance",
+    "Time_of_departure",
+    "Pop_density_score",
+    "Delay_time (minutes)",
+    "SSS_score"
+]
+
+# Convert numeric columns safely
+for col in numeric_cols:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+# Remove infinity and missing values
+df = df.replace([np.inf, -np.inf], np.nan)
+
+print("Missing values before drop:")
+print(df[feature_cols + [target_col]].isna().sum())
+
+df = df.dropna(subset=feature_cols + [target_col])
+
+# Convert cluster to categorical for XGBoost
+df["Cluster"] = df["Cluster"].astype("category")
+
+print("Final cleaned shape:", df.shape)
+
+# =========================
+# 3. SPLIT DATA
+# =========================
+
+X = df[feature_cols]
+y = df[target_col]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.4,
+    random_state=42
+)
+
+# =========================
+# 4. TRAIN MODEL
+# =========================
+
+model = XGBRegressor(
+    n_estimators=200,
+    max_depth=3,
+    learning_rate=0.05,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective="reg:squarederror",
+    enable_categorical=True,
+    early_stopping_rounds=20,
+    random_state=42
+)
+
+model.fit(
+    X_train,
+    y_train,
+    eval_set=[(X_test, y_test)],
+    verbose=False
+)
+
+# =========================
+# 5. EVALUATE MODEL
+# =========================
+
+predictions = model.predict(X_test)
+
+r2 = r2_score(y_test, predictions)
+mae = mean_absolute_error(y_test, predictions)
+rmse = np.sqrt(mean_squared_error(y_test, predictions))
+
+print("R² score:", r2)
+print("MAE:", mae)
+print("RMSE:", rmse)
+
+# =========================
+# 6. SAVE MODEL
+# =========================
+
+joblib.dump(model, "xgboost_sss_model.pkl")
+
+# Save cluster categories too, important for Streamlit later
+joblib.dump(df["Cluster"].cat.categories, "cluster_categories.pkl")
+
+print("Model saved as xgboost_sss_model.pkl")
+print("Cluster categories saved as cluster_categories.pkl")
+
+# =========================
+# 7. VISUALISATIONS
+# =========================
+
+fig, ax = plt.subplots(figsize=(6, 6))
+PredictionErrorDisplay.from_predictions(
+    y_test,
+    predictions,
+    kind="actual_vs_predicted",
+    ax=ax,
+    scatter_kwargs={"alpha": 0.5}
+)
+plt.title("Actual vs Predicted SSS Score")
+plt.show()
+
+plot_importance(model)
+plt.title("XGBoost Feature Importance")
+plt.show()
+
+results = model.evals_result()
+plt.plot(results["validation_0"]["rmse"], label="Validation RMSE")
+plt.xlabel("Trees")
+plt.ylabel("RMSE")
+plt.legend()
+plt.title("Learning Curve")
+plt.show()
+
+# =========================
+# 8. TEST NEW INPUT
+# =========================
+
+new_data = pd.DataFrame([{
+    "Platform_raw_distance": 115,
+    "Time_of_departure": 1857,
+    "Pop_density_score": 2,
+    "Delay_time (minutes)": 4,
+    "Cluster": "Cluster 1"
+}])
+
+new_data["Cluster"] = pd.Categorical(
+    new_data["Cluster"],
+    categories=df["Cluster"].cat.categories
+)
+
+new_prediction = model.predict(new_data)
+
+print("Predicted SSS_score:", new_prediction[0])
+
+from sklearn.model_selection import cross_val_score, KFold
+import numpy as np
+
+# ======================================================
+# PREPARE DATA FOR CROSS VALIDATION
+# ======================================================
+
+# One-hot encode Cluster
+X_cv = pd.get_dummies(X, columns=["Cluster"])
+
+# ======================================================
+# CREATE XGBOOST MODEL
+# ======================================================
+
+cv_model = XGBRegressor(
+    n_estimators=200,
+    max_depth=3,
+    learning_rate=0.05,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective="reg:squarederror",
+    random_state=42
+)
+
+# ======================================================
+# K-FOLD CROSS VALIDATION
+# ======================================================
+
+kfold = KFold(
+    n_splits=5,
+    shuffle=True,
+    random_state=42
+)
+
+# ======================================================
+# RUN CROSS VALIDATION
+# ======================================================
+
+cv_scores = cross_val_score(
+    cv_model,
+    X_cv,
+    y,
+    cv=kfold,
+    scoring="r2"
+)
+
+# ======================================================
+# RESULTS
+# ======================================================
+
+print("Cross-validation R² scores:")
+print(cv_scores)
+
+print("\nMean R²:", np.mean(cv_scores))
+print("Std R²:", np.std(cv_scores))
