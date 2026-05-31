@@ -1,0 +1,181 @@
+import pandas as pd
+import numpy as np
+import joblib
+
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score
+
+file_paths = [
+    r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\Cluster 1 Combined.csv",
+    r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\Cluster 2 Combined.csv",
+    r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\Cluster 3 Combined.csv",
+    r"D:\Project Awesome\ENGG2112 Group 20 Project Code\Historical Data completed\Cluster 4 Combined.csv",
+]
+
+dfs = [pd.read_csv(path, sep=';') for path in file_paths]
+df = pd.concat(dfs, ignore_index=True)
+
+print(df.shape)
+df.head()
+
+df = df.drop(columns=[
+    "SSS_score",
+    "Cluster",
+    "NDD",
+    "Pop_density"   # keep score as target instead
+], errors="ignore")
+
+df = df.drop_duplicates()
+
+print(df.shape)
+df.head()
+       
+def hhmm_to_minutes(hhmm):
+    hhmm = int(hhmm)
+    hour = hhmm // 100
+    minute = hhmm % 100
+    return hour * 60 + minute
+
+def distance_to_peak(hhmm):
+    time_min = hhmm_to_minutes(hhmm)
+    peak_times = [8*60, 9*60, 17*60, 18*60]
+    return min(abs(time_min - p) for p in peak_times)
+
+df["Time_minutes"] = df["Time_of_departure"].apply(hhmm_to_minutes)
+df["Distance_to_peak_min"] = df["Time_of_departure"].apply(distance_to_peak)
+
+df["Date_of_departure"] = pd.to_datetime(df["Date_of_departure"], dayfirst=True, errors="coerce")
+df["Day_of_week"] = df["Date_of_departure"].dt.dayofweek
+
+target = "Pop_density_score"
+
+features = [
+    "Start_station",
+    "Target_station",
+    "Train_line",
+    "Time_of_departure",
+    "Time_minutes",
+    "Distance_to_peak_min",
+    "Day_of_week",
+    "Delay_time (minutes)",
+    "Platform_number",
+    "Entrance",
+    "Platform_raw_distance",
+]
+
+df_model = df[features + [target]].dropna()
+
+X = df_model[features]
+y = df_model[target].astype(int)
+
+print(X.shape)
+print(y.value_counts())
+
+categorical_features = [
+    "Start_station",
+    "Target_station",
+    "Train_line",
+    "Entrance",
+]
+
+numeric_features = [
+    "Time_of_departure",
+    "Time_minutes",
+    "Distance_to_peak_min",
+    "Day_of_week",
+    "Delay_time (minutes)",
+    "Platform_number",
+    "Platform_raw_distance",
+]
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features),
+        ("num", "passthrough", numeric_features),
+    ]
+)
+
+model = RandomForestClassifier(
+    n_estimators=300,
+    random_state=42,
+    class_weight="balanced",
+    max_depth=None
+)
+
+pipeline = Pipeline(
+    steps=[
+        ("preprocessor", preprocessor),
+        ("model", model),
+    ]
+)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+pipeline.fit(X_train, y_train)
+
+y_pred = pipeline.predict(X_test)
+
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+
+joblib.dump(pipeline, r"D:\Project Awesome\ENGG2112 Group 20 Project Code\ML Code\pop_density_model.pkl")
+
+print("Saved pop density model.")
+
+# testing model's approximation
+import pandas as pd
+import joblib
+
+model = joblib.load(
+    r"D:\Project Awesome\ENGG2112 Group 20 Project Code\ML Code\pop_density_model.pkl"
+)
+
+sample = pd.DataFrame([{
+    "Start_station": "Central",
+    "Target_station": "Redfern",
+    "Train_line": "T1",
+    "Time_of_departure": 1005,
+    "Time_minutes": 10*60 + 5,
+    "Distance_to_peak_min": 5,
+    "Day_of_week": 2,   # Wed
+    "Delay_time (minutes)": 3.5,
+    "Platform_number": 18,
+    "Entrance": "e3",
+    "Platform_raw_distance": 115,
+}])
+
+prediction = model.predict(sample)
+
+print("Predicted Pop_density_score:", prediction[0])
+
+# Cross Validation with Stratified KFold
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import cross_val_score
+
+cv = StratifiedKFold(
+    n_splits=5,
+    shuffle=True,
+    random_state=42
+)    
+
+scores = cross_val_score(
+    pipeline,
+    X,
+    y,
+    cv=cv,
+    scoring='accuracy'
+)
+
+print("Fold scores:", scores)
+print("Mean CV accuracy:", scores.mean())
+print("Std:", scores.std())
