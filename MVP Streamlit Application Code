@@ -1,0 +1,822 @@
+import os
+import re
+import joblib
+import requests
+import numpy as np
+import pandas as pd
+import streamlit as st
+from pathlib import Path
+from datetime import datetime
+
+
+# =====================================================
+# Page Config
+# =====================================================
+
+st.set_page_config(
+    page_title="SSS Train Route Recommender",
+    page_icon="🚆",
+    layout="wide"
+)
+
+st.title("Sensory Stress Score Route Recommender")
+st.caption("Live TfNSW route options ranked by travel time and predicted sensory stress.")
+
+
+# =====================================================
+# File Paths
+# =====================================================
+
+BASE_DIR = Path(__file__).resolve().parent
+POP_DENSITY_MODEL_PATH = r"D:\Project Awesome\ENGG2112 Group 20 Project Code\ML Code\pop_density_model.pkl"
+SSS_MODEL_PATH = r"D:\Project Awesome\ENGG2112 Group 20 Project Code\ML Code\xgboost_sss_model.pkl"
+
+
+# =====================================================
+# Constants
+# =====================================================
+
+ORIGIN_STATIONS = [
+    "Central",
+    "Redfern",
+    "Parramatta",
+    "Lidcombe",
+    "Chatswood"
+]
+
+NDDS = [
+    "asd",
+    "tourettes",
+    "chronic tic disorders",
+    "sensory processing disorder",
+    "stutter",
+    "speech sound disorder",
+    "adhd",
+    "dyslexia",
+    "learning disorder"
+]
+
+NDD_TO_CLUSTER = {
+    "asd": "Cluster 1",
+    "tourettes": "Cluster 1",
+    "chronic tic disorders": "Cluster 1",
+    "sensory processing disorder": "Cluster 1",
+
+    "stutter": "Cluster 2",
+    "speech sound disorder": "Cluster 2",
+
+    "adhd": "Cluster 3",
+    "dyslexia": "Cluster 3",
+    "learning disorder": "Cluster 3",
+}
+
+# Paste your FULL station_ids dictionary here
+station_ids = {'Allawah': 222020, 'Arncliffe': 220520, 'Artarmon': 206410,
+    'Ashfield': 213110, 'Asquith': 207730, 'Auburn': 214410,
+    'Banksia': 221610, 'Bankstown': 220010, 'Bardwell Park': 220710,
+    'Beecroft': 211910, 'Belmore': 219210, 'Berala': 214120,
+    'Berowra': 208110, 'Beverly Hills': 220910, 'Bexley North': 220720,
+    'Birrong': 214320, 'Blacktown': 214810, 'Bondi Junction': 202210,
+    'Burwood': 213410, 'Cabramatta': 216620, 'Campbelltown': 256020,
+    'Campsie': 219410, 'Canley Vale': 216610, 'Canterbury': 219320,
+    'Caringbah': 222910, 'Carlton': 221810, 'Carramar': 216330,
+    'Casula': 217030, 'Central': 200060, 'Chatswood': 206710,
+    'Cheltenham': 211920, 'Chester Hill': 216220, 'Circular Quay': 200020,
+    'Clarendon': 275630, 'Clyde': 214230, 'Como': 222610,
+    'Concord West': 213810, 'Cronulla': 223020, 'Croydon': 213210,
+    'Denistone': 211410, 'Domestic Airport': 202020, 'Doonside': 276710,
+    'Dulwich Hill': 220310, 'East Hills': 221320, 'East Richmond': 275310,
+    'Eastwood': 212210, 'Edgecliff': 202710, 'Edmondson Park': 217426,
+    'Emu Plains': 275020, 'Engadine': 223310, 'Epping': 212110,
+    'Erskineville': 204310, 'Fairfield': 216510, 'Flemington': 214020,
+    'Glenfield': 216710, 'Gordon': 207210, 'Granville': 214240,
+    'Green Square': 201710, 'Guildford': 216110, 'Gymea': 222710,
+    'Harris Park': 215010, 'Heathcote': 223320, 'Holsworthy': 217310,
+    'Homebush': 214010, 'Hornsby': 207720, 'Hurlstone Park': 219310,
+    'Hurstville': 222010, 'Ingleburn': 256510,
+    'International Airport': 202030, 'Jannali': 222620, 'Killara': 207110,
+    'Kings Cross': 201110, 'Kingsgrove': 220810, 'Kingswood': 274720,
+    'Kirrawee': 223230, 'Kogarah': 221710, 'Lakemba': 219510,
+    'Leightonfield': 216310, 'Leppington': 217933, 'Leumeah': 256010,
+    'Lewisham': 204920, 'Lidcombe': 214110, 'Lindfield': 207010,
+    'Liverpool': 217020, 'Loftus': 223220, 'Macarthur': 256030,
+    'Macdonaldtown': 201520, 'Macquarie Fields': 256410,
+    'Marayong': 214820, 'Marrickville': 220410, 'Martin Place': 200030,
+    'Mascot': 202010, 'Meadowbank': 211430, 'Merrylands': 216010,
+    'Milsons Point': 206110, 'Minto': 256610, 'Miranda': 222810,
+    'Mortdale': 222310, 'Mount Colah': 207910, 'Mount Druitt': 277010,
+    'Mount Kuring-gai': 208010, 'Mulgrave': 275610, 'Museum': 200040,
+    'Narwee': 220920, 'Newtown': 204210, 'Normanhurst': 207620,
+    'North Strathfield': 213710, 'North Sydney': 206010, 'Oatley': 222320,
+    'Olympic Park': 212710, 'Padstow': 221110, 'Panania': 221310,
+    'Parramatta': 215020, 'Pendle Hill': 214530, 'Pennant Hills': 212020,
+    'Penrith': 275010, 'Penshurst': 222210, 'Petersham': 204910,
+    'Punchbowl': 219610, 'Pymble': 207310, 'Quakers Hill': 276310,
+    'Redfern': 201510, 'Regents Park': 214310, 'Revesby': 221210,
+    'Rhodes': 213820, 'Richmond': 275320, 'Riverstone': 276510,
+    'Riverwood': 221010, 'Rockdale': 221620, 'Rooty Hill': 276610,
+    'Roseville': 206910, 'Schofields': 276220, 'Sefton': 216210,
+    'Seven Hills': 214710, 'St James': 200050, 'St Leonards': 206520,
+    'St Marys': 276010, 'St Peters': 204410, 'Stanmore': 204810,
+    'Strathfield': 213510, 'Summer Hill': 213010, 'Sutherland': 223210,
+    'Sydenham': 204420, 'Tempe': 204430, 'Thornleigh': 212010,
+    'Toongabbie': 214610, 'Town Hall': 200070, 'Turramurra': 207410,
+    'Turrella': 220530, 'Villawood': 216320, 'Vineyard': 276520,
+    'Wahroonga': 207610, 'Waitara': 207710, 'Warrawee': 207420,
+    'Warwick Farm': 217010, 'Waterfall': 223330, 'Waverton': 206020,
+    'Wentworthville': 214520, 'Werrington': 274710, 'West Ryde': 211420,
+    'Westmead': 214510, 'Wiley Park': 219520, 'Windsor': 275620,
+    'Wolli Creek': 220510, 'Wollstonecraft': 206510,
+    'Woolooware': 223010, 'Wynyard': 200080, 'Yagoona': 219910,
+    'Yennora': 216120,
+
+}
+
+DESTINATION_STATIONS = sorted(station_ids.keys())
+
+SYDNEY_TZ = "Australia/Sydney"
+
+ENTRANCE_OPTIONS = {
+    "Central": {
+        "Grand Concourse": "E1",
+        "Eddy Ave": "E2",
+        "Elizabeth St": "E3",
+        "Eastern Stairs": "E4",
+        "Chalmers St": "E5",
+        "Devonshire St": "E6",
+        "Railway Square": "E7",
+    },
+    "Chatswood": {
+        "Victoria Ave and Railway St stairs": "E1",
+        "Orchard Rd bus interchange": "E2",
+        "Chatswood Mall pedestrian walkway": "E3",
+        "Post Office Ln pedestrian walkway": "E4",
+    },
+    "Parramatta": {
+        "Fitzwilliam St bus interchange": "E1",
+        "Argyle St bus interchange": "E2",
+        "Westfield Parramatta": "E3",
+        "Darcy St": "E4",
+        "Parramatta Square": "E5",
+        "Argyle/Station St corner bus interchange": "E6",
+        "Station St": "E7",
+    },
+    "Redfern": {
+        "Lawson St": "E1",
+        "Little Everleigh St": "E2",
+        "Marian St": "E3",
+        "Gibbons St corner": "E4",
+    },
+    "Lidcombe": {
+        "Church St": "E1",
+        "Railway St": "E2",
+    },
+}
+
+# =====================================================
+# Load Models
+# =====================================================
+
+@st.cache_resource
+def load_models():
+    pop_density_model = joblib.load(POP_DENSITY_MODEL_PATH)
+    sss_model = joblib.load(SSS_MODEL_PATH)
+    return pop_density_model, sss_model
+
+
+try:
+    pop_density_model, sss_model = load_models()
+    models_loaded = True
+except Exception as e:
+    st.error(f"Model loading failed: {e}")
+    models_loaded = False
+
+# =====================================================
+# Helper Functions
+# =====================================================
+
+def extract_platform_number(platform_raw):
+
+    if pd.isna(platform_raw):
+        return None
+
+    match = re.search(r"(\d+)$", str(platform_raw))
+
+    return int(match.group(1)) if match else None
+
+
+def hhmm_to_minutes(hhmm):
+
+    hhmm = int(hhmm)
+
+    hour = hhmm // 100
+    minute = hhmm % 100
+
+    return hour * 60 + minute
+
+
+def time_to_peak_distance(hhmm):
+
+    time_min = hhmm_to_minutes(hhmm)
+
+    peak_times = [
+        8*60,
+        9*60,
+        17*60,
+        18*60
+    ]
+
+    return min(
+        abs(time_min-p)
+        for p in peak_times
+    )
+
+
+def to_sydney(series):
+
+    try:
+        return series.dt.tz_convert(SYDNEY_TZ)
+
+    except TypeError:
+
+        return (
+            series
+            .dt
+            .tz_localize("UTC")
+            .dt
+            .tz_convert(SYDNEY_TZ)
+        )
+
+# =====================================================
+# Sidebar Inputs
+# =====================================================
+
+st.sidebar.header("Trip Input")
+
+selected_ndd = st.sidebar.selectbox(
+    "NDD type",
+    NDDS
+)
+
+origin_station = st.sidebar.selectbox(
+    "Origin station",
+    ORIGIN_STATIONS
+)
+
+selected_entrance_name = st.sidebar.selectbox(
+    "Station entrance",
+    list(ENTRANCE_OPTIONS[origin_station].keys())
+)
+
+destination_station = st.sidebar.selectbox(
+    "Destination station",
+    DESTINATION_STATIONS
+)
+
+arrival_time_text = st.sidebar.text_input(
+    "Arrival time (HH:MM)",
+    value=datetime.now().strftime("%H:%M")
+)
+
+try:
+    arrival_time = datetime.strptime(
+        arrival_time_text,
+        "%H:%M"
+    ).time()
+
+except:
+    st.sidebar.error("Use HH:MM format")
+    st.stop()
+
+search_button = st.sidebar.button(
+    "Find train options"
+)
+
+# =====================================================
+# TfNSW API Fetching
+# =====================================================
+
+def fetch_trip_data(origin_name, destination_name):
+
+    api_key = os.getenv("TFNSW_API_KEY")
+
+    if not api_key:
+        st.error("TFNSW_API_KEY not found.")
+        return pd.DataFrame()
+
+    origin_id = str(station_ids[origin_name])
+    destination_id = str(station_ids[destination_name])
+
+    url = "https://api.transport.nsw.gov.au/v1/tp/trip"
+    headers = {"Authorization": f"apikey {api_key}"}
+
+    today = datetime.now()
+
+    selected_datetime = datetime.combine(
+        today.date(),
+        arrival_time)
+
+    params = {
+        "outputFormat": "rapidJSON",
+        "type_origin": "any",
+        "name_origin": origin_id,
+        "type_destination": "any",
+        "name_destination": destination_id,
+        "coordOutputFormat": "EPSG:4326",
+        "TfNSWTR": "true",
+        "depArrMacro": "dep",
+        "itdDate": selected_datetime.strftime("%Y%m%d"),
+        "itdTime": selected_datetime.strftime("%H%M"),
+    }
+
+    response = requests.get(
+        url,
+        headers=headers,
+        params=params,
+        timeout=30
+    )
+
+    if response.status_code != 200:
+        st.error(f"API request failed with status {response.status_code}")
+        st.text(response.text[:500])
+        return pd.DataFrame()
+
+    data = response.json()
+    rows = []
+
+    query_time = selected_datetime.strftime(
+    "%Y-%m-%d %H:%M:%S")
+
+    for journey_i, journey in enumerate(data.get("journeys", []), start=1):
+
+        for leg_i, leg in enumerate(journey.get("legs", []), start=1):
+
+            transport = leg.get("transportation", {})
+            origin = leg.get("origin", {})
+            destination = leg.get("destination", {})
+
+            for stop_i, stop in enumerate(leg.get("stopSequence", []), start=1):
+
+                rows.append({
+                    "query_time": query_time,
+                    "query_origin": origin_name,
+                    "query_destination": destination_name,
+
+                    "journey_id": journey_i,
+                    "leg_id": leg_i,
+                    "stop_sequence": stop_i,
+
+                    "line_name": transport.get("disassembledName"),
+                    "route_number": transport.get("number"),
+
+                    "origin_stop": origin.get("name"),
+                    "destination_stop": destination.get("name"),
+                    "stop_name": stop.get("name"),
+
+                    "platform": (
+                        stop.get("properties", {}).get("platform")
+                        if isinstance(stop.get("properties"), dict)
+                        else None
+                    ),
+
+                    "departure_time_estimated": stop.get("departureTimeEstimated"),
+                    "departure_time_planned": stop.get("departureTimePlanned"),
+                    "arrival_time_estimated": stop.get("arrivalTimeEstimated"),
+                    "arrival_time_planned": stop.get("arrivalTimePlanned"),
+                })
+
+    return pd.DataFrame(rows)
+
+
+# =====================================================
+# Data Transformation
+# =====================================================
+def transform_trip_data(df_new):
+
+    if df_new.empty:
+        return pd.DataFrame()
+
+    df_new = df_new.copy()
+
+    time_cols = [
+        "departure_time_planned",
+        "departure_time_estimated",
+        "arrival_time_planned",
+        "arrival_time_estimated"
+    ]
+
+    for col in time_cols:
+        df_new[col] = pd.to_datetime(df_new[col], errors="coerce")
+
+    df_new["trip_key"] = (
+        df_new["query_destination"].astype(str)
+        + "_"
+        + df_new["journey_id"].astype(str)
+        + "_"
+        + df_new["leg_id"].astype(str)
+    )
+
+    first_departure = (
+        df_new.groupby("trip_key")["departure_time_planned"]
+        .transform("first")
+    )
+
+    df_new["duration"] = (
+        (df_new["arrival_time_planned"] - first_departure)
+        .dt.total_seconds() / 60
+    )
+
+    origin_rows = df_new[df_new["stop_sequence"] == 1].copy()
+
+    origin_rows["Platform_number"] = origin_rows["platform"].apply(
+        extract_platform_number
+    )
+
+    origin_rows["departure_local"] = to_sydney(
+        origin_rows["departure_time_planned"]
+    )
+
+    origin_rows["Date_of_departure"] = origin_rows["departure_local"].dt.date
+
+    origin_rows["Time_of_departure"] = (
+        origin_rows["departure_local"]
+        .dt.strftime("%H%M")
+        .astype(int)
+    )
+
+    origin_rows["Start_station"] = origin_rows["query_origin"]
+
+    origin_meta = origin_rows[
+        [
+            "trip_key",
+            "Start_station",
+            "Date_of_departure",
+            "Time_of_departure",
+            "Platform_number",
+            "departure_time_planned",
+            "departure_time_estimated",
+        ]
+    ].set_index("trip_key")
+
+    target_rows = (
+        df_new.sort_values("stop_sequence")
+        .groupby("trip_key")
+        .last()
+        .reset_index()
+    )
+
+    target_rows["Target_station"] = target_rows["query_destination"]
+    target_rows["duration_to_target_min"] = target_rows["duration"]
+
+    target_meta = target_rows[
+        [
+            "trip_key",
+            "Target_station",
+            "duration_to_target_min",
+        ]
+    ].set_index("trip_key")
+
+    first_rail_leg = (
+        df_new[df_new["line_name"].str.startswith("T", na=False)]
+        .sort_values(["trip_key", "stop_sequence"])
+        .groupby("trip_key")["line_name"]
+        .first()
+        .rename("Train_line")
+    )
+
+    origin_meta["Delay_time (minutes)"] = (
+        (
+            to_sydney(origin_meta["departure_time_estimated"])
+            - to_sydney(origin_meta["departure_time_planned"])
+        )
+        .dt.total_seconds() / 60
+    )
+
+    df_data = (
+        origin_meta
+        .join(target_meta, how="left")
+        .join(first_rail_leg, how="left")
+        .reset_index(drop=True)
+    )
+
+    df_data["Delay_time (minutes)"] = df_data[
+        "Delay_time (minutes)"
+    ].fillna(0)
+
+    df_data = df_data.dropna(subset=["Train_line"])
+
+    return df_data
+
+# =====================================================
+# Platform Distance Lookup
+# =====================================================
+
+PLATFORM_DIR = BASE_DIR / "Platform Distances"
+
+platform_files = {
+    "Central": PLATFORM_DIR / "Central Platform Distances.csv",
+    "Redfern": PLATFORM_DIR / "Redfern Platform Distances.csv",
+    "Parramatta": PLATFORM_DIR / "Paramatta Platform Distances.csv",
+    "Lidcombe": PLATFORM_DIR / "Lidcombe Platform Distances.csv",
+    "Chatswood": PLATFORM_DIR / "Chatswood Platform Distances.csv",
+}
+
+
+@st.cache_data
+def load_platform_data():
+    dfs = {}
+
+    for station, file in platform_files.items():
+        temp = pd.read_csv(file)
+
+        first_col = temp.columns[0]
+        temp = temp.rename(columns={first_col: "Entrance"})
+
+        dfs[station] = temp
+
+    return dfs
+
+
+platform_dfs = load_platform_data()
+
+
+def get_platform_distance(station, entrance_code, platform_number):
+
+    try:
+        platform_number = int(platform_number)
+
+        if station == "Chatswood" and platform_number in [2, 3]:
+            return np.nan
+
+        if station == "Lidcombe" and platform_number == 0:
+            return np.nan
+
+        df = platform_dfs[station]
+
+        row = df[
+            df["Entrance"]
+            .astype(str)
+            .str.contains(entrance_code, case=False, na=False)
+        ]
+
+        if row.empty:
+            return np.nan
+
+        possible_cols = [
+            f"P{platform_number}",
+            str(platform_number)
+        ]
+
+        for col in df.columns:
+            if str(col).startswith(str(platform_number)):
+                possible_cols.append(col)
+
+        for col in possible_cols:
+            if col in df.columns:
+                return pd.to_numeric(row[col], errors="coerce").iloc[0]
+
+        return np.nan
+
+    except:
+        return np.nan
+
+
+# =====================================================
+# Main App Logic
+# =====================================================
+
+if search_button:
+
+    if not models_loaded:
+        st.error("Models not loaded")
+        st.stop()
+
+    if origin_station == destination_station:
+        st.warning("Origin and destination cannot be same")
+        st.stop()
+
+    entrance_code = ENTRANCE_OPTIONS[origin_station][selected_entrance_name]
+
+    with st.spinner("Fetching live TfNSW route data..."):
+        raw_df = fetch_trip_data(
+            origin_station,
+            destination_station
+        )
+
+    if raw_df.empty:
+        st.error("No API data returned")
+        st.stop()
+
+    routes_df = transform_trip_data(raw_df)
+
+    if routes_df.empty:
+        st.warning("No usable train routes returned by the API.")
+        st.stop()
+
+    routes_df["Platform_raw_distance"] = routes_df["Platform_number"].apply(
+        lambda x: get_platform_distance(
+            origin_station,
+            entrance_code,
+            x
+        )
+    )
+
+    routes_df["Entrance"] = entrance_code.lower()
+
+    routes_df["Time_minutes"] = routes_df["Time_of_departure"].apply(
+        hhmm_to_minutes
+    )
+
+    routes_df["Distance_to_peak_min"] = routes_df["Time_of_departure"].apply(
+        time_to_peak_distance
+    )
+
+    routes_df["Date_of_departure"] = pd.to_datetime(
+        routes_df["Date_of_departure"],
+        errors="coerce"
+    )
+
+    routes_df["Day_of_week"] = routes_df[
+        "Date_of_departure"
+    ].dt.dayofweek
+
+    pop_features = [
+        "Start_station",
+        "Target_station",
+        "Train_line",
+        "Time_of_departure",
+        "Time_minutes",
+        "Distance_to_peak_min",
+        "Day_of_week",
+        "Delay_time (minutes)",
+        "Platform_number",
+        "Entrance",
+        "Platform_raw_distance",
+    ]
+
+    routes_df = routes_df.dropna(subset=pop_features).copy()
+
+    if routes_df.empty:
+        st.error("No routes left after platform-distance filtering.")
+        st.stop()
+
+    routes_df["Pop_density_score"] = pop_density_model.predict(
+        routes_df[pop_features]
+    )
+
+    routes_df["NDD"] = selected_ndd
+
+    routes_df["Cluster"] = (
+        routes_df["NDD"]
+        .map(NDD_TO_CLUSTER)
+        .astype("category")
+    )
+
+    sss_features = [
+        "Platform_raw_distance",
+        "Time_of_departure",
+        "Pop_density_score",
+        "Delay_time (minutes)",
+        "Cluster",
+    ]
+
+    routes_df = routes_df.dropna(subset=sss_features).copy()
+
+    routes_df["predicted_sss"] = sss_model.predict(
+        routes_df[sss_features]
+    )
+
+    fastest = routes_df.sort_values(
+        "duration_to_target_min"
+    ).head(3)
+
+    least_stressful = routes_df.sort_values(
+        "predicted_sss"
+    ).head(3)
+
+    routes_df["duration_rank"] = routes_df[
+        "duration_to_target_min"
+    ].rank(method="min")
+
+    routes_df["sss_rank"] = routes_df[
+        "predicted_sss"
+    ].rank(method="min")
+
+    routes_df["balanced_score"] = (
+        0.4 * routes_df["duration_rank"]
+        + 0.6 * routes_df["sss_rank"]
+    )
+
+    balanced = routes_df.sort_values(
+        "balanced_score"
+    ).head(3)
+
+# ------------------------------------------
+# Display
+# ------------------------------------------
+
+st.success(
+    f"Found {len(routes_df)} available train options."
+)
+
+fastest_display = fastest.copy()
+least_display = least_stressful.copy()
+balanced_display = balanced.copy()
+
+
+for df_temp in [
+
+    fastest_display,
+    least_display,
+    balanced_display
+
+]:
+
+    df_temp["Time_of_departure"] = (
+        df_temp["Time_of_departure"]
+        .astype(int)
+        .astype(str)
+        .str.zfill(4)
+    )
+
+    df_temp["Time_of_departure"] = (
+
+        df_temp["Time_of_departure"]
+        .str[:2]
+
+        + ":"
+
+        + df_temp["Time_of_departure"]
+        .str[2:]
+
+    )
+
+
+rename_dict = {
+
+    "Train_line":"Train Line",
+    "Platform_number":"Platform",
+    "Time_of_departure":"Departure",
+    "duration_to_target_min":"Duration (min)",
+    "predicted_sss":"SSS"
+
+}
+
+fastest_display = fastest_display.rename(
+    columns=rename_dict
+)
+
+least_display = least_display.rename(
+    columns=rename_dict
+)
+
+balanced_display = balanced_display.rename(
+    columns=rename_dict
+)
+
+
+display_cols = [
+
+    "Train Line",
+    "Platform",
+    "Departure",
+    "Duration (min)",
+    "SSS"
+
+]
+
+
+col1,col2,col3 = st.columns(3)
+
+
+with col1:
+
+    st.subheader("⚡ Fastest")
+
+    st.dataframe(
+        fastest_display[display_cols],
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+with col2:
+
+    st.subheader("🧘 Least Stressful")
+
+    st.dataframe(
+        least_display[display_cols],
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+with col3:
+
+    st.subheader("⭐ Balanced")
+
+    st.dataframe(
+        balanced_display[display_cols],
+        use_container_width=True,
+        hide_index=True
+    )
