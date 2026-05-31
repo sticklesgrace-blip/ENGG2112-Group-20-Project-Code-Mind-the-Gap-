@@ -1,0 +1,639 @@
+# #input libraries
+import pandas as pd
+import random
+import numpy as np
+from datetime import datetime
+import os
+import time
+import requests
+import re
+
+# ===========================================
+# Constants
+# ===========================================
+stations_on_map = stations_on_map = [
+    'Allawah', 'Arncliffe', 'Artarmon', 'Ashfield', 'Asquith',
+    'Auburn', 'Banksia', 'Bankstown', 'Bardwell Park', 'Beecroft',
+    'Belmore', 'Berala', 'Berowra', 'Beverly Hills', 'Bexley North',
+    'Birrong', 'Blacktown', 'Bondi Junction', 'Burwood', 'Cabramatta',
+    'Campbelltown', 'Campsie', 'Canley Vale', 'Canterbury', 'Caringbah',
+    'Carlton', 'Carramar', 'Casula', 'Central', 'Chatswood',
+    'Cheltenham', 'Chester Hill', 'Clarendon', 'Clyde', 'Como',
+    'Concord West', 'Cronulla', 'Croydon', 'Denistone', 'Doonside',
+    'Dulwich Hill', 'East Hills', 'East Richmond', 'Eastwood', 'Edgecliff',
+    'Edmondson Park', 'Emu Plains', 'Engadine', 'Epping', 'Erskineville',
+    'Fairfield', 'Flemington', 'Glenfield', 'Gordon', 'Granville',
+    'Green Square', 'Guildford', 'Gymea', 'Harris Park', 'Heathcote',
+    'Holsworthy', 'Homebush', 'Hornsby', 'Hurlstone Park', 'Hurstville',
+    'Ingleburn', 'Jannali', 'Killara', 'Kings Cross', 'Kingsgrove',
+    'Kirrawee', 'Kogarah', 'Lakemba', 'Leightonfield', 'Leppington',
+    'Leumeah', 'Lewisham', 'Lidcombe', 'Lindfield', 'Liverpool',
+    'Loftus', 'Macarthur', 'Macdonaldtown', 'Macquarie Fields', 'Marayong',
+    'Marrickville', 'Martin Place', 'Mascot', 'Meadowbank', 'Merrylands',
+    'Milsons Point', 'Minto', 'Miranda', 'Mortdale', 'Mount Colah',
+    'Mount Druitt', 'Mount Kuring-gai', 'Mulgrave', 'Narwee', 'Normanhurst',
+    'North Strathfield', 'North Sydney', 'Oatley', 'Olympic Park', 'Padstow',
+    'Panania', 'Parramatta', 'Pendle Hill', 'Pennant Hills', 'Penrith',
+    'Penshurst', 'Petersham', 'Punchbowl', 'Pymble', 'Quakers Hill',
+    'Redfern', 'Regents Park', 'Revesby', 'Rhodes', 'Richmond',
+    'Riverstone', 'Riverwood', 'Rockdale', 'Rooty Hill', 'Roseville',
+    'St Leonards', 'St Marys', 'St Peters', 'Schofields', 'Sefton',
+    'Seven Hills', 'Stanmore', 'Strathfield', 'Summer Hill', 'Sutherland',
+    'Sydenham', 'Tempe', 'Thornleigh', 'Toongabbie', 'Town Hall',
+    'Turrella', 'Turramurra', 'Villawood', 'Vineyard', 'Waitara',
+    'Warrawee', 'Warwick Farm', 'Waterfall', 'Waverton', 'Wentworthville',
+    'Werrington', 'West Ryde', 'Westmead', 'Wiley Park', 'Windsor',
+    'Wolli Creek', 'Wollstonecraft', 'Woolooware', 'Wynyard', 'Yagoona',
+    'Yennora', 'Circular Quay', 'Museum', 'St James'
+]
+
+station_ids = {
+    'Allawah': 222020, 'Arncliffe': 220520, 'Artarmon': 206410,
+    'Ashfield': 213110, 'Asquith': 207730, 'Auburn': 214410,
+    'Banksia': 221610, 'Bankstown': 220010, 'Bardwell Park': 220710,
+    'Beecroft': 211910, 'Belmore': 219210, 'Berala': 214120,
+    'Berowra': 208110, 'Beverly Hills': 220910, 'Bexley North': 220720,
+    'Birrong': 214320, 'Blacktown': 214810, 'Bondi Junction': 202210,
+    'Burwood': 213410, 'Cabramatta': 216620, 'Campbelltown': 256020,
+    'Campsie': 219410, 'Canley Vale': 216610, 'Canterbury': 219320,
+    'Caringbah': 222910, 'Carlton': 221810, 'Carramar': 216330,
+    'Casula': 217030, 'Central': 200060, 'Chatswood': 206710,
+    'Cheltenham': 211920, 'Chester Hill': 216220, 'Circular Quay': 200020,
+    'Clarendon': 275630, 'Clyde': 214230, 'Como': 222610,
+    'Concord West': 213810, 'Cronulla': 223020, 'Croydon': 213210,
+    'Denistone': 211410, 'Domestic Airport': 202020, 'Doonside': 276710,
+    'Dulwich Hill': 220310, 'East Hills': 221320, 'East Richmond': 275310,
+    'Eastwood': 212210, 'Edgecliff': 202710, 'Edmondson Park': 217426,
+    'Emu Plains': 275020, 'Engadine': 223310, 'Epping': 212110,
+    'Erskineville': 204310, 'Fairfield': 216510, 'Flemington': 214020,
+    'Glenfield': 216710, 'Gordon': 207210, 'Granville': 214240,
+    'Green Square': 201710, 'Guildford': 216110, 'Gymea': 222710,
+    'Harris Park': 215010, 'Heathcote': 223320, 'Holsworthy': 217310,
+    'Homebush': 214010, 'Hornsby': 207720, 'Hurlstone Park': 219310,
+    'Hurstville': 222010, 'Ingleburn': 256510,
+    'International Airport': 202030, 'Jannali': 222620, 'Killara': 207110,
+    'Kings Cross': 201110, 'Kingsgrove': 220810, 'Kingswood': 274720,
+    'Kirrawee': 223230, 'Kogarah': 221710, 'Lakemba': 219510,
+    'Leightonfield': 216310, 'Leppington': 217933, 'Leumeah': 256010,
+    'Lewisham': 204920, 'Lidcombe': 214110, 'Lindfield': 207010,
+    'Liverpool': 217020, 'Loftus': 223220, 'Macarthur': 256030,
+    'Macdonaldtown': 201520, 'Macquarie Fields': 256410,
+    'Marayong': 214820, 'Marrickville': 220410, 'Martin Place': 200030,
+    'Mascot': 202010, 'Meadowbank': 211430, 'Merrylands': 216010,
+    'Milsons Point': 206110, 'Minto': 256610, 'Miranda': 222810,
+    'Mortdale': 222310, 'Mount Colah': 207910, 'Mount Druitt': 277010,
+    'Mount Kuring-gai': 208010, 'Mulgrave': 275610, 'Museum': 200040,
+    'Narwee': 220920, 'Newtown': 204210, 'Normanhurst': 207620,
+    'North Strathfield': 213710, 'North Sydney': 206010, 'Oatley': 222320,
+    'Olympic Park': 212710, 'Padstow': 221110, 'Panania': 221310,
+    'Parramatta': 215020, 'Pendle Hill': 214530, 'Pennant Hills': 212020,
+    'Penrith': 275010, 'Penshurst': 222210, 'Petersham': 204910,
+    'Punchbowl': 219610, 'Pymble': 207310, 'Quakers Hill': 276310,
+    'Redfern': 201510, 'Regents Park': 214310, 'Revesby': 221210,
+    'Rhodes': 213820, 'Richmond': 275320, 'Riverstone': 276510,
+    'Riverwood': 221010, 'Rockdale': 221620, 'Rooty Hill': 276610,
+    'Roseville': 206910, 'Schofields': 276220, 'Sefton': 216210,
+    'Seven Hills': 214710, 'St James': 200050, 'St Leonards': 206520,
+    'St Marys': 276010, 'St Peters': 204410, 'Stanmore': 204810,
+    'Strathfield': 213510, 'Summer Hill': 213010, 'Sutherland': 223210,
+    'Sydenham': 204420, 'Tempe': 204430, 'Thornleigh': 212010,
+    'Toongabbie': 214610, 'Town Hall': 200070, 'Turramurra': 207410,
+    'Turrella': 220530, 'Villawood': 216320, 'Vineyard': 276520,
+    'Wahroonga': 207610, 'Waitara': 207710, 'Warrawee': 207420,
+    'Warwick Farm': 217010, 'Waterfall': 223330, 'Waverton': 206020,
+    'Wentworthville': 214520, 'Werrington': 274710, 'West Ryde': 211420,
+    'Westmead': 214510, 'Wiley Park': 219520, 'Windsor': 275620,
+    'Wolli Creek': 220510, 'Wollstonecraft': 206510,
+    'Woolooware': 223010, 'Wynyard': 200080, 'Yagoona': 219910,
+    'Yennora': 216120,
+}
+TRAIN_LINE_STATIONS = {
+    "T1": {
+        "Berowra": 208110, "Mount Kuring-gai": 208010, "Mount Colah": 207910,
+        "Asquith": 207730, "Hornsby": 207720, "Waitara": 207710,
+        "Wahroonga": 207610, "Warrawee": 207420, "Turramurra": 207410,
+        "Pymble": 207310, "Gordon": 207210, "Killara": 207110,
+        "Lindfield": 207010, "Roseville": 206910, "Chatswood": 206710,
+        "Artarmon": 206410, "St Leonards": 206520, "Wollstonecraft": 206510,
+        "Waverton": 206020, "North Sydney": 206010, "Milsons Point": 206110,
+        "Wynyard": 200080, "Town Hall": 200070, "Central": 200060,
+        "Redfern": 201510, "Burwood": 213410, "Strathfield": 213510,
+        "Lidcombe": 214110, "Auburn": 214410, "Clyde": 214230,
+        "Granville": 214240, "Harris Park": 215010, "Parramatta": 215020,
+    },
+    "T2_T3": {
+        "Leppington": 217933, "Edmondson Park": 217426, "Glenfield": 216710,
+        "Casula": 217030, "Liverpool": 217020, "Warwick Farm": 217010,
+        "Cabramatta": 216620, "Canley Vale": 216610, "Carramar": 216330,
+        "Villawood": 216320, "Leightonfield": 216310, "Chester Hill": 216220,
+        "Sefton": 216210, "Regents Park": 214310, "Berala": 214120,
+        "Fairfield": 216510, "Yennora": 216120, "Guildford": 216110,
+        "Merrylands": 216010, "Parramatta": 215020, "Harris Park": 215010,
+        "Granville": 214240, "Clyde": 214230, "Auburn": 214410,
+        "Lidcombe": 214110, "Flemington": 214020, "Homebush": 214010,
+        "Strathfield": 213510, "Burwood": 213410, "Croydon": 213210,
+        "Ashfield": 213110, "Summer Hill": 213010, "Lewisham": 204920,
+        "Petersham": 204910, "Stanmore": 204810, "Newtown": 204210,
+        "Macdonaldtown": 201520, "Redfern": 201510, "Central": 200060,
+        "Town Hall": 200070, "Wynyard": 200080, "Circular Quay": 200020,
+        "St James": 200050, "Museum": 200040,
+    },
+    "T4": {
+        "Helensburgh": 250810, "Waterfall": 223330, "Heathcote": 223320,
+        "Engadine": 223310, "Loftus": 223220, "Cronulla": 223020,
+        "Woolooware": 223010, "Caringbah": 222910, "Miranda": 222810,
+        "Gymea": 222710, "Kirrawee": 223230, "Sutherland": 223210,
+        "Jannali": 222620, "Como": 222610, "Oatley": 222320,
+        "Mortdale": 222310, "Penshurst": 222210, "Hurstville": 222010,
+        "Allawah": 222020, "Carlton": 221810, "Kogarah": 221710,
+        "Rockdale": 221620, "Banksia": 221610, "Arncliffe": 220520,
+        "Wolli Creek": 220510, "Tempe": 204430, "Sydenham": 204420,
+        "Redfern": 201510, "Central": 200060, "Town Hall": 200070,
+        "Martin Place": 200030, "Kings Cross": 201110,
+        "Edgecliff": 202710, "Bondi Junction": 202210,
+    },
+    "T8": {
+        "Macarthur": 256030, "Campbelltown": 256020, "Leumeah": 256010,
+        "Minto": 256610, "Ingleburn": 256510, "Macquarie Fields": 256410,
+        "Glenfield": 216710, "Holsworthy": 217310, "East Hills": 221320,
+        "Panania": 221310, "Revesby": 221210, "Padstow": 221110,
+        "Riverwood": 221010, "Narwee": 220920, "Beverly Hills": 220910,
+        "Kingsgrove": 220810, "Bexley North": 220720, "Bardwell Park": 220710,
+        "Turrella": 220530, "Wolli Creek": 220510,
+        "International Airport": 202030, "Domestic Airport": 202020,
+        "Mascot": 202010, "Green Square": 201710, "Sydenham": 204420,
+        "St Peters": 204410, "Erskineville": 204310, "Redfern": 201510,
+        "Central": 200060, "Museum": 200040, "St James": 200050,
+        "Circular Quay": 200020, "Wynyard": 200080, "Town Hall": 200070,
+    },
+    "T9": {
+        "Hornsby": 207720, "Normanhurst": 207620, "Thornleigh": 212010,
+        "Pennant Hills": 212020, "Beecroft": 211910, "Cheltenham": 211920,
+        "Epping": 212110, "Eastwood": 212210, "Denistone": 211410,
+        "West Ryde": 211420, "Meadowbank": 211430, "Rhodes": 213820,
+        "Concord West": 213810, "North Strathfield": 213710,
+        "Strathfield": 213510, "Burwood": 213410, "Redfern": 201510,
+        "Central": 200060, "Town Hall": 200070, "Wynyard": 200080,
+        "Milsons Point": 206110, "North Sydney": 206010, "Waverton": 206020,
+        "Wollstonecraft": 206510, "St Leonards": 206520, "Artarmon": 206410,
+        "Chatswood": 206710, "Roseville": 206910, "Lindfield": 207010,
+        "Killara": 207110, "Gordon": 207210,
+    },
+}
+# ───────── Station Config Dictionary --> To make input data easier ────────────────────────────────
+# platform entrances for each station
+station_config = {
+    'Central':    {'locations': ['Entrance 1', 'Entrance 2', 'Entrance 3', 'Entrance 4', 'Entrance 5', 'Entrance 6', 'Entrance 7']},
+    'Redfern':    {'locations': ['Entrance 1', 'Entrance 2', 'Entrance 3', 'Entrance 4']},
+    'Chatswood':  {'locations': ['Entrance 1', 'Entrance 2', 'Entrance 3', 'Entrance 4']},
+    'Parramatta': {'locations': ['Entrance 1', 'Entrance 2', 'Entrance 3', 'Entrance 4', 'Entrance 5']},
+    'Lidcombe':   {'locations': ['Entrance 1', 'Entrance 2']}
+}
+
+# ───────── Constants before code ────────────────────────────────
+hour_values = [6,7,8,9,15,16,17,18]  # hour ranges within peak hour we want the user to input to demonstrate the purpose
+ndds = ['asd', 'tourettes', 'chronic tic disorders', 'sensory processing disorder', 'stutter', 'speech sound disorder', 'adhd', 'dyslexia', 'learning disorder'] # possible ndds of the user
+
+# ───────── Platform data import and processing ────────────────────────────────
+# import and filter all the data
+Central_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Central Platform Distances.csv")
+Redfern_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Redfern Platform Distances.csv")
+Chatswood_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Chatswood Platform Distances.csv")
+Lidcombe_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Lidcombe Platform Distances.csv")
+Parramatta_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Paramatta Platform Distances.csv")
+
+
+# PROCESSING THE DATAFRAMES
+dfs = [Central_df, Redfern_df, Chatswood_df, Lidcombe_df, Parramatta_df]
+df_names = ['Central_df', 'Redfern_df', 'Chatswood_df', 'Lidcombe_df', 'Parramatta_df']
+
+for i, df in enumerate(dfs):
+    if 'Unnamed: 0' in df.columns:
+        dfs[i] = df.drop(columns=['Unnamed: 0'])
+
+# Update the original DataFrames with the modified versions
+Central_df = dfs[0]
+Redfern_df = dfs[1]
+Chatswood_df = dfs[2]
+Lidcombe_df = dfs[3]
+Parramatta_df = dfs[4]
+
+
+# FILTERING DATA TO 1-5 RANGE
+
+# 1. Consolidate all 'P' column data
+all_dfs_list = [
+    ('Central_df', Central_df),
+    ('Redfern_df', Redfern_df),
+    ('Chatswood_df', Chatswood_df),
+    ('Lidcombe_df', Lidcombe_df),
+    ('Parramatta_df', Parramatta_df)
+]
+
+all_p_values = []
+for df_name, df in all_dfs_list:
+    for col in df.columns:
+        if col.startswith('P') and pd.api.types.is_numeric_dtype(df[col]):
+            all_p_values.extend(df[col].dropna().tolist())
+
+if not all_p_values:
+    print("No 'P' columns with numeric data found across all DataFrames.")
+else:
+    all_p_series = pd.Series(all_p_values)
+
+    # 2. Calculate Global Statistics
+    global_mean = all_p_series.mean()
+    global_std = all_p_series.std()
+    print(f"Global Mean of 'P' values: {global_mean:.2f}")
+    print(f"Global Standard Deviation of 'P' values: {global_std:.2f}")
+
+    # 3. Define Scaling Parameters
+    # We'll define the scaling range based on +/- 2 standard deviations from the global mean
+    # Values outside this range will be capped at 1 or 5.
+    data_min_for_scaling = max(0, global_mean - 2 * global_std) # Ensure min is not negative
+    data_max_for_scaling = global_mean + 2 * global_std
+    scale_min = 1
+    scale_max = 5
+
+    print(f"Scaling data range: [{data_min_for_scaling:.2f}, {data_max_for_scaling:.2f}]")
+
+    # 4. Create Scaling Function
+    def get_scaled_range(value, data_min, data_max, scale_min, scale_max):
+        if data_max == data_min:
+            return (scale_min + scale_max) / 2 # Handle cases with no variance
+
+        # Cap value to the original data range for scaling
+        capped_value = max(data_min, min(value, data_max))
+
+        # Linear scaling to target range
+        scaled_value = scale_min + ((capped_value - data_min) / (data_max - data_min)) * (scale_max - scale_min)
+        return round(scaled_value)
+
+    # 5. Process Each Platform/Column and 6. Store the results
+    results = []
+    for df_name, df in all_dfs_list:
+        for col in df.columns:
+            if col.startswith('P') and pd.api.types.is_numeric_dtype(df[col]):
+                platform_mean = df[col].mean()
+                platform_std = df[col].std()
+                platform_range = get_scaled_range(platform_mean, data_min_for_scaling, data_max_for_scaling, scale_min, scale_max)
+                results.append({
+                    'DataFrame': df_name,
+                    'Platform': col,
+                    'Average Distance': f'{platform_mean:.2f}',
+                    'Standard Deviation': f'{platform_std:.2f}',
+                    'Scaled Range (1-5)': platform_range
+                })
+
+for df_name, df in all_dfs_list:
+    for col in df.columns:
+        if col.startswith('P') and pd.api.types.is_numeric_dtype(df[col]):
+            # Apply the scaling function to each value in the column
+            # Using .apply() with a lambda function for element-wise operation
+            df[col] = df[col].apply(lambda x: get_scaled_range(x, data_min_for_scaling, data_max_for_scaling, scale_min, scale_max))
+
+# Update the original DataFrames with the modified versions from the list
+Central_df = all_dfs_list[0][1]
+Redfern_df = all_dfs_list[1][1]
+Chatswood_df = all_dfs_list[2][1]
+Lidcombe_df = all_dfs_list[3][1]
+Parramatta_df = all_dfs_list[4][1]
+
+# ===========================================
+# User Input Data
+# ===========================================
+
+# constants before code -- will be used to pick certain values
+now = datetime.now()
+
+# starting station code find
+starting_station = ['Central', 'Redfern', 'Parramatta', 'Lidcombe', 'Chatswood']  # this is currently decided to align with the data we want but will change with the apis
+random_starting_station = random.choice(starting_station)
+
+# ───────── loop for input data dictionary ────────────────────────────────
+config = station_config.get(random_starting_station)
+
+if config:
+    input_data = {
+        'Start Station': random_starting_station,
+        'Time': now.strftime('%H%M'),
+        'Date': now.strftime('%Y%m%d'),
+        'Location': random.choice(config['locations']),
+        'Target Station': random.choice(stations_on_map),
+        'NDD': random.choice(ndds),
+    }
+print(f'Your randomly selected data for {random_starting_station} Station: {input_data}')
+
+# ===========================================
+# TFNSW Trip API Fetching
+# ===========================================
+
+# ───────── API key ────────────────────────────────
+os.environ["TFNSW_API_KEY"] = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJ3c1FrSkt2LThUaVBYN3JJbHRpZVlKMk9QeXVPR1hLLTNYQ2EyTGNHSGRNIiwiaWF0IjoxNzc4Nzk2NTEyfQ.mhxtey0bPvB3NbF1nfAuD08XRCPxYaRq4eaJavG6CGM"
+
+# ───────── Imports and API Key Validation ────────────────────────────────
+api_key = os.getenv("TFNSW_API_KEY")
+if not api_key:
+    raise ValueError("TFNSW_API_KEY not found. Run Cell 1 first.")
+
+headers = {"Authorization": f"apikey {api_key}"}
+
+# ───────── Origin and IDS from data ────────────────────────────────
+ORIGIN_NAME = input_data['Start Station']
+ORIGIN_ID   = str(station_ids[ORIGIN_NAME])
+
+url = "https://api.transport.nsw.gov.au/v1/tp/trip"
+
+query_time         = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+timestamp_for_file = datetime.now().strftime("%Y%m%d_%H%M%S")
+# ───────── Unique stations and line connections ────────────────────────────────
+ALL_STATIONS = {}
+STATION_LINES = {}
+
+for line, stations in TRAIN_LINE_STATIONS.items():
+    for station, code in stations.items():
+        ALL_STATIONS[station] = code
+        STATION_LINES.setdefault(station, []).append(line)
+
+print("Unique destination stations:", len(station_ids))
+
+# ───────── API row extraction ────────────────────────────────
+def extract_rows(data, destination_name, destination_id):
+    rows = []
+
+    for journey_i, journey in enumerate(data.get("journeys", []), start=1):
+        legs = journey.get("legs", [])
+        if not legs:
+            continue
+
+        for leg_i, leg in enumerate(legs, start=1):
+            transport   = leg.get("transportation", {})
+            origin      = leg.get("origin", {})
+            destination = leg.get("destination", {})
+
+            for stop_i, stop in enumerate(leg.get("stopSequence", []), start=1):
+                coord = stop.get("coord")
+                lat, lon = None, None
+                if isinstance(coord, list) and len(coord) >= 2:
+                    lon, lat = coord[0], coord[1]
+                elif isinstance(coord, dict):
+                    lat = coord.get("lat")
+                    lon = coord.get("lon")
+
+                rows.append({
+                    "query_time":          query_time,
+                    "query_origin":        ORIGIN_NAME,
+                    "query_origin_id":     ORIGIN_ID,
+                    "query_destination":   destination_name,
+                    "query_destination_id": destination_id,
+                    "destination_lines":   ", ".join(STATION_LINES.get(destination_name, [])),
+
+                    "journey_id":     journey_i,
+                    "leg_id":         leg_i,
+                    "stop_sequence":  stop_i,
+
+                    "line_name":      transport.get("disassembledName"),
+                    "route_number":   transport.get("number"),
+
+                    "origin_stop":      origin.get("name"),
+                    "destination_stop": destination.get("name"),
+                    "stop_name":        stop.get("name"),
+
+                    "platform": (
+                        stop.get("properties", {}).get("platform")
+                        if isinstance(stop.get("properties"), dict) else None
+                    ),
+
+                    "departure_time_estimated": stop.get("departureTimeEstimated"),
+                    "departure_time_planned":   stop.get("departureTimePlanned"),
+                    "arrival_time_estimated":   stop.get("arrivalTimeEstimated"),
+                    "arrival_time_planned":     stop.get("arrivalTimePlanned"),
+
+                    "latitude":  lat,
+                    "longitude": lon,
+                })
+
+    return rows
+
+# ───────── Call API for each station ────────────────────────────────
+all_rows         = []
+failed_stations  = []
+
+for station_name, station_id in station_ids.items():
+
+    if station_name == ORIGIN_NAME:
+        continue                     # skip: can't trip-plan to yourself
+
+    # print(f"Fetching {ORIGIN_NAME} → {station_name}")
+
+    params = {
+        "outputFormat":       "rapidJSON",
+        "type_origin":        "any",
+        "name_origin":        ORIGIN_ID,
+        "type_destination":   "any",
+        "name_destination":   str(station_id),
+        "coordOutputFormat":  "EPSG:4326",
+        "TfNSWTR":            "true",   # REQUIRED: enables real-time estimated times
+        "depArrMacro":        "dep",    # depart after query time
+        "itdDate":            datetime.now().strftime("%Y%m%d"),
+        "itdTime":            datetime.now().strftime("%H%M"),
+    }
+
+    try:
+        response = requests.get(url, headers=headers, params=params, timeout=30)
+
+        if response.status_code != 200:
+            print(f"  ✗ Status {response.status_code}")
+            failed_stations.append({
+                "query_time":   query_time,
+                "station_name": station_name,
+                "station_id":   station_id,
+                "status":       response.status_code,
+                "error":        response.text[:300],
+            })
+            continue
+
+        data = response.json()
+        rows = extract_rows(data, station_name, station_id)
+        all_rows.extend(rows)
+        # print(f"  ✓ {len(rows)} rows")
+        time.sleep(0.5)
+
+    except Exception as e:
+        # print(f"  ✗ Exception: {e}")
+        failed_stations.append({
+            "query_time":   query_time,
+            "station_name": station_name,
+            "station_id":   station_id,
+            "status":       "exception",
+            "error":        str(e),
+        })
+
+
+# ───────── Dataframe Build ────────────────────────────────
+df_new = pd.DataFrame(all_rows)
+
+if df_new.empty:
+    print("No data collected — check your API key and network connection.")
+else:
+    for col in ["departure_time_planned", "departure_time_estimated",
+                "arrival_time_planned",   "arrival_time_estimated"]:
+        df_new[col] = pd.to_datetime(df_new[col], errors="coerce")
+
+    # Unique identifier per trip leg
+    df_new["trip_key"] = (
+        df_new["query_destination"].astype(str) + "_" +
+        df_new["journey_id"].astype(str)         + "_" +
+        df_new["leg_id"].astype(str)
+    )
+
+    # First planned departure per trip (= departure from origin station)
+    first_dep_planned   = df_new.groupby("trip_key")["departure_time_planned"].transform("first")
+    first_dep_estimated = df_new.groupby("trip_key")["departure_time_estimated"].transform("first")
+
+    # Duration from origin to each intermediate stop
+    df_new["duration"] = (
+        (df_new["arrival_time_planned"] - first_dep_planned)
+        .dt.total_seconds() / 60
+    )
+    df_new["duration"] = (
+        (df_new["arrival_time_estimated"] - first_dep_estimated)
+        .dt.total_seconds() / 60
+    )
+    # Prefer estimated; fall back to planned
+    df_new["duration"] = (
+        df_new["duration"]
+        .fillna(df_new["duration"])
+    )
+
+# ===========================================
+# Data Sorting and formatting
+# ===========================================
+
+# ── Helper (AI help) ────────────────────────────────────────────────────────────────────
+def extract_platform_number(platform_raw):
+    """Convert a raw platform code like 'CE16' → integer 16."""
+    if pd.isna(platform_raw):
+        return None
+    match = re.search(r'(\d+)$', str(platform_raw))
+    return int(match.group(1)) if match else None
+
+SYDNEY_TZ = "Australia/Sydney"
+
+def to_sydney(series: pd.Series) -> pd.Series:
+    """Convert a UTC-aware datetime Series to Sydney local time."""
+    try:
+        return series.dt.tz_convert(SYDNEY_TZ)
+    except TypeError:
+        return series.dt.tz_localize("UTC").dt.tz_convert(SYDNEY_TZ)
+
+# ── Origin metadata (one row per trip, at stop_sequence == 1) ────────────────────────────────────────────────────────────────────
+origin_rows = df_new[df_new["stop_sequence"] == 1].copy()
+
+origin_rows["platform_number"]    = origin_rows["platform"].apply(extract_platform_number)
+origin_rows["departure_local"]    = to_sydney(origin_rows["departure_time_planned"])
+origin_rows["Date_of_departure"]  = origin_rows["departure_local"].dt.date
+origin_rows["Time_of_departure"]  = (
+    origin_rows["departure_local"].dt.strftime("%H%M").astype(int)
+)
+origin_rows["Start_station"] = origin_rows["query_origin"]   # plain name stored earlier
+
+origin_meta = origin_rows[[
+    "trip_key", "Start_station", "Date_of_departure",
+    "Time_of_departure", "platform_number",
+    "departure_time_planned", "departure_time_estimated",
+]].set_index("trip_key")
+
+# ── Target stop metadata (last stop in each sequence) ────────────────────────────────────────────────────────────────────
+target_rows = (
+    df_new
+    .sort_values("stop_sequence")
+    .groupby("trip_key")
+    .last()
+    .reset_index()
+)
+
+target_rows["Target_station"]        = target_rows["query_destination"]
+target_rows["duration_to_target_min"] = target_rows["duration"]
+
+target_meta = target_rows[[
+    "trip_key", "Target_station", "duration_to_target_min",
+]].set_index("trip_key")
+
+# ── Train Line ────────────────────────────────────────────────────────────────────
+first_rail_leg = (
+    df_new[df_new["line_name"].str.startswith("T", na=False)]
+    .sort_values(["trip_key", "stop_sequence"])
+    .groupby("trip_key")["line_name"]
+    .first()
+    .rename("Train_line")
+)
+
+# ── Delay Calculation ────────────────────────────────────────────────────────────────────
+
+origin_meta["Delay_time (minutes)"] = (
+    (to_sydney(origin_meta["departure_time_estimated"])
+     - to_sydney(origin_meta["departure_time_planned"]))
+    .dt.total_seconds() / 60
+)
+
+df_transformed = (
+    origin_meta
+    .join(target_meta,    how="left")
+    .join(first_rail_leg, how="left")
+    .reset_index(drop=True)
+)
+
+# ── Population density placeholder (unknown for moment) ────────────────────────────────────────────────────────────────────
+df_transformed["Pop_density"] = "Unknown"
+
+# Rename platform column to match historical schema
+df_transformed.rename(columns={"platform_number": "Platform_number"}, inplace=True)
+
+# ── Enforce column order and dtypes ────────────────────────────────────────────────────────────────────
+HISTORICAL_COLUMNS = [
+    "Start_station",
+    "Target_station",
+    "Train_line",
+    "Pop_density",
+    "Date_of_departure",
+    "Time_of_departure",          # integer HHMM, e.g. 956 for 09:56
+    "Delay_time (minutes)",       # float; NaN where estimated time unavailable
+    "Platform_number",            # integer; Central departure platform
+    "duration_to_target_min",     # float; planned travel time in minutes
+]
+
+cols_present        = [c for c in HISTORICAL_COLUMNS if c in df_transformed.columns]
+df_data = df_transformed[cols_present].copy()
+
+df_data["Time_of_departure"] = (
+    pd.to_numeric(df_data["Time_of_departure"], errors="coerce")
+    .astype("Int64")
+)
+df_data["Platform_number"] = (
+    pd.to_numeric(df_data["Platform_number"], errors="coerce")
+    .astype("Int64")
+)
+
+print("Transformed dataset shape:", df_data.shape)
+display(df_data.head(10))
+
+# ===========================================
+# Data Clense and filtering
+# ===========================================
+df = df_data.dropna(subset = ['Train_line']).copy()        # remove columns with a NaN train line or platform number as we cannot use this data
+
+df ['Delay_time (minutes)'] = df ['Delay_time (minutes)'].fillna(0)   # change NaN values to 0 for all delay times
+
+# remove unnecessary platforms
+reference_df = globals()[f'{random_starting_station}_df'] # call the correct platform data for this set
+valid_platforms = [int(p[1:]) for p in reference_df.columns]  # ['P1','P2'...] → [1, 2...]
+df = df[df['Platform_number'].isin(valid_platforms)]
+
+# sort out non-relevant platforms
+df = df[df['Target_station'] == input_data['Target Station']]
+df = df[df['duration_to_target_min'].notna()]
+
+display(df.head())
+file_name = f'TFNSW_filtered_data_{timestamp_for_file}.csv'
+df.to_csv(file_name, index = False)
