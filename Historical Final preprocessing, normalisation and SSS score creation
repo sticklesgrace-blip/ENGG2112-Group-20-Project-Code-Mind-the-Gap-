@@ -1,0 +1,875 @@
+# #input libraries
+import pandas as pd
+import random
+import numpy as np
+import datetime
+
+starting_station = ['Central']  # this is currently decided to align with the data we want but will change with the apis
+random_starting_station = random.choice(starting_station)
+stations = [
+    'Adamstown', 'Albion Park', 'Allawah', 'Arncliffe', 'Artarmon', 'Ashfield', 'Asquith', 'Auburn', 'Austinmer', 'Awaba', 'Banksia', 'Bankstown', 'Bardwell Park', 'Bathurst', 'Beecroft', 'Bell', 'Bellambi', 'Belmore', 'Berala', 'Berowra', 'Beverly Hills', 'Bexley North', 'Birrong', 'Blackheath', 'Blacktown', 'Blaxland', 'Bombo', 'Bondi Junction', 'Booragul', 'Broadmeadow', 'Bullaburra', 'Bulli', 'Burwood', 'Campsie', 'Canterbury', 'Cardiff', 'Caringbah', 'Carlton', 'Central', 'Chatswood', 'Cheltenham', 'Clarendon', 'Clyde', 'Coalcliff', 'Cockle Creek', 'Coledale', 'Como', 'Concord West', 'Coniston', 'Corrimal', 'Cowan', 'Cringila', 'Cronulla', 'Croydon', 'Dapto', 'Denistone', 'Domestic', 'Doonside', 'Dora Creek', 'Dulwich Hill', 'East Hills', 'East Richmond', 'Eastwood', 'Edgecliff', 'Edmondson Park', 'Emu Plains', 'Engadine', 'Epping', 'Erskineville', 'Fairfield', 'Fairy Meadow', 'Fassifern', 'Faulconbridge', 'Flemington', 'Glenbrook', 'Glenfield', 'Gordon', 'Gosford', 'Granville', 'Green Square', 'Guildford', 'Gymea', 'Hamilton', 'Harris Park', 'Hawkesbury River', 'Hazelbrook', 'Heathcote', 'Helensburgh', 'Holsworthy', 'Homebush', 'Hornsby', 'Hurlstone Park', 'Hurstville', 'International', 'Jannali', 'Katoomba', 'Kembla Grange', 'Kiama', 'Killara', 'Kings Cross', 'Kingsgrove', 'Kingswood', 'Kirrawee', 'Kogarah', 'Koolewong', 'Kotara', 'Lakemba', 'Lapstone', 'Lawson', 'Leppington', 'Leura', 'Lewisham', 'Lidcombe', 'Linden', 'Lindfield', 'Lisarow', 'Lithgow', 'Loftus', 'Lysaghts', 'Macdonaldtown', 'Marayong', 'Marrickville', 'Martin Place', 'Mascot', 'Meadowbank', 'Medlow Bath', 'Merrylands', 'Milsons Point', 'Minnamurra', 'Miranda', 'Morisset', 'Mortdale', 'Mount Colah', 'Mount Druitt', 'Mount Kuring-gai', 'Mount Victoria', 'Mulgrave', 'Narara', 'Narwee', 'Newcastle Interchange', 'Newtown', 'Niagara Park', 'Normanhurst', 'North Strathfield', 'North Sydney', 'North Wollongong', 'Oak Flats', 'Oatley', 'Otford', 'Ourimbah', 'Padstow', 'Panania', 'Parramatta', 'Pendle Hill', 'Pennant Hills', 'Penrith', 'Penshurst', 'Petersham', 'Point Clare', 'Port Kembla', 'Port Kembla North', 'Punchbowl', 'Pymble', 'Quakers Hill', 'Redfern', 'Regents Park', 'Revesby', 'Rhodes', 'Richmond', 'Riverstone', 'Riverwood', 'Rockdale', 'Rooty Hill', 'Roseville', 'Scarborough', 'Schofields', 'Seven Hills', 'Shellharbour Junction', 'Springwood', 'St Leonards', 'St Marys', 'St Peters', 'Stanmore', 'Stanwell Park', 'Strathfield', 'Summer Hill', 'Sutherland', 'Sydenham', 'Tascott', 'Tempe', 'Teralba', 'Thirroul', 'Thornleigh', 'Toongabbie', 'Town Hall', 'Towradgi', 'Tuggerah', 'Turramurra', 'Turrella', 'Unanderra', 'Valley Heights', 'Vineyard', 'Wahroonga', 'Waitara', 'Warnervale', 'Warrawee', 'Warrimoo', 'Waterfall', 'Waverton', 'Wentworth Falls', 'Wentworthville', 'Werrington', 'West Ryde', 'Westmead', 'Wiley Park', 'Windsor', 'Wolli Creek', 'Wollongong', 'Wollstonecraft', 'Wombarra', 'Wondabyne', 'Woodford', 'Woolooware', 'Woonona', 'Woy Woy', 'Wyee', 'Wynyard', 'Wyong', 'Yagoona', 'Yennora', 'Zig Zag', 'Bargo', 'Bowral', 'Bundanoon', 'Burradoo', 'Cabramatta', 'Campbelltown', 'Canley Vale', 'Carramar', 'Casula', 'Chester Hill', 'Douglas Park', 'Exeter', 'Goulburn', 'Ingleburn', 'Leightonfield', 'Leumeah', 'Liverpool', 'Macarthur', 'Macquarie Fields', 'Marulan', 'Menangle', 'Menangle Park', 'Minto', 'Mittagong', 'Moss Vale', 'Penrose', 'Picton', 'Sefton', 'Tahmoor', 'Tallong', 'Villawood', 'Warwick Farm', 'Wingello', 'Yerrinbool', 'Broken Hill', 'Perth', 'Islington Junction', 'Warabrook', 'Unknown', 'Olympic Park'
+]
+
+stations_on_map = [
+    'Allawah', 'Arncliffe', 'Artarmon', 'Ashfield', 'Asquith',
+    'Auburn', 'Banksia', 'Bankstown', 'Bardwell Park', 'Beecroft',
+    'Belmore', 'Berala', 'Berowra', 'Beverly Hills', 'Bexley North',
+    'Birrong', 'Blacktown', 'Bondi Junction', 'Burwood', 'Cabramatta',
+    'Campbelltown', 'Campsie', 'Canley Vale', 'Canterbury', 'Caringbah',
+    'Carlton', 'Carramar', 'Casula', 'Central', 'Chatswood',
+    'Cheltenham', 'Chester Hill', 'Clarendon', 'Clyde', 'Como',
+    'Concord West', 'Cronulla', 'Croydon', 'Denistone', 'Doonside',
+    'Dulwich Hill', 'East Hills', 'East Richmond', 'Eastwood', 'Edgecliff',
+    'Edmondson Park', 'Emu Plains', 'Engadine', 'Epping', 'Erskineville',
+    'Fairfield', 'Flemington', 'Glenfield', 'Gordon', 'Granville',
+    'Green Square', 'Guildford', 'Gymea', 'Harris Park', 'Heathcote',
+    'Holsworthy', 'Homebush', 'Hornsby', 'Hurlstone Park', 'Hurstville',
+    'Ingleburn', 'Jannali', 'Killara', 'Kings Cross', 'Kingsgrove',
+    'Kirrawee', 'Kogarah', 'Lakemba', 'Leightonfield', 'Leppington',
+    'Leumeah', 'Lewisham', 'Lidcombe', 'Lindfield', 'Liverpool',
+    'Loftus', 'Macarthur', 'Macdonaldtown', 'Macquarie Fields', 'Marayong',
+    'Marrickville', 'Martin Place', 'Mascot', 'Meadowbank', 'Merrylands',
+    'Milsons Point', 'Minto', 'Miranda', 'Mortdale', 'Mount Colah',
+    'Mount Druitt', 'Mount Kuring-gai', 'Mulgrave', 'Narwee', 'Normanhurst',
+    'North Strathfield', 'North Sydney', 'Oatley', 'Olympic Park', 'Padstow',
+    'Panania', 'Parramatta', 'Pendle Hill', 'Pennant Hills', 'Penrith',
+    'Penshurst', 'Petersham', 'Punchbowl', 'Pymble', 'Quakers Hill',
+    'Redfern', 'Regents Park', 'Revesby', 'Rhodes', 'Richmond',
+    'Riverstone', 'Riverwood', 'Rockdale', 'Rooty Hill', 'Roseville',
+    'St Leonards', 'St Marys', 'St Peters', 'Schofields', 'Sefton',
+    'Seven Hills', 'Stanmore', 'Strathfield', 'Summer Hill', 'Sutherland',
+    'Sydenham', 'Tempe', 'Thornleigh', 'Toongabbie', 'Town Hall',
+    'Turrella', 'Turramurra', 'Villawood', 'Vineyard', 'Waitara',
+    'Warrawee', 'Warwick Farm', 'Waterfall', 'Waverton', 'Wentworthville',
+    'Werrington', 'West Ryde', 'Westmead', 'Wiley Park', 'Windsor',
+    'Wolli Creek', 'Wollstonecraft', 'Woolooware', 'Wynyard', 'Yagoona',
+    'Yennora', 'Circular Quay', 'Museum', 'St James'
+]
+
+if random_starting_station == 'Central':  # for central starting station
+    central_random_data = {}
+
+  # Generate random Time between 6-10 AM or 3-7 PM
+    allowed_hours = [6, 7, 8, 9, 15, 16, 17, 18]
+    selected_hour = random.choice(allowed_hours)
+    central_random_data['Time'] = f"{selected_hour:02d}{random.randint(0, 59):02d}"
+
+  # Generate random Location
+    locations = ['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7']
+    central_random_data['Location'] = random.choice(locations)
+
+  # Generate random Target Station
+  # central_random_data['Target Station'] = random.choice(stations_on_map)
+    central_random_data['Target Station'] = 'Redfern'
+  # Generate random NDD Type - will change when wanting specific data, but will only process this once
+    ndd_types = ['asd']
+    central_random_data['NDD'] = random.choice(ndd_types)
+
+    print(f'Your randomly generated data for Central Station: {central_random_data}')
+    input_data = central_random_data
+
+# input and visualise first 5 rows of train data - don't have to visualise in the end, just for now
+nov_2018_df = pd.read_csv(r"C:\Users\grace\Inputs/TransportNSW_Data/[V2]central_nov_2018_cleaned_train_data.csv")
+dec_2018_df = pd.read_csv(r"C:\Users\grace\Inputs/TransportNSW_Data/[V2]central_dec_2018_cleaned_train_data.csv")
+jan_2019_df = pd.read_csv(r"C:\Users\grace\Inputs/TransportNSW_Data/[V2]central_jan_2019_cleaned_train_data.csv")
+feb_2019_df = pd.read_csv(r"C:\Users\grace\Inputs/TransportNSW_Data/[V2]central_nov_2018_cleaned_train_data.csv")
+
+display(nov_2018_df.head())
+
+## outside for loop
+cleaned_dfs = []
+
+
+# df list and names
+dfs = [nov_2018_df, dec_2018_df, jan_2019_df, feb_2019_df]
+df_names = ['nov 2018', 'dec 2018', 'jan 2019', 'feb 2019']
+
+# cleaning of data and renaming for later
+cols_to_keep = ['Orig..Station', 'Actual.Stop.Station', 'line_code', 'Occupancy Range', 'Date_of_departure', 'Time_of_departure', 'delay_minutes', 'Platform_number']
+rename_map = {'Orig..Station': 'Start_station', 'Actual.Stop.Station':'Target_station', 'line_code':'Train_line', 'Occupancy Range': 'Pop_density', 'delay_minutes':'Delay_time (minutes)'}
+
+# stations on each line (in direction)
+t1_north = ["Berowra", "Mount Kuring-gai", "Mount Colah", "Asquith", "Hornsby", "Waitara", "Wahroonga", "Warrawee", "Turramurra", "Pymble", "Gordon", "Killara", "Lindfield", "Roseville", "Chatswood", "Artarmon", "St Leonards", "Wollstonecraft", "Waverton", "North Sydney", "Milsons Point", "Wynyard", "Town Hall", "Macquarie University", "Macquarie Park", "North Ryde", "Hornsby", "Normanhurst", "Thornleigh", "Pennant Hills", "Beecroft", "Cheltenham"]
+t1_west = ["Redfern", "Strathfield", "Burwood", "Lidcombe", "Auburn", "Clyde", "Granville", "Harris Park", "Parramatta", "Westmead", "Wentworthville", "Pendle Hill", "Toongabbie", "Seven Hills", "Blacktown", "Doonside", "Rooty Hill", "Mount Druitt", "St Marys", "Werrington", "Kingswood", "Penrith", "Emu Plains", "Epping", "Eastwood", "Denistone", "West Ryde", "Meadowbank", "Rhodes", "Concord West", "North Strathfield", "Marayong", "Quakers Hill", "Schofields", "Riverstone", "Vineyard", "Mulgrave", "Windsor", "Clarendon", "East Richmond", "Richmond"]
+t2_loop = ["Circular Quay", "Wynyard", "Town Hall", "St James", "Museum"]
+t2_west = ["Redfern", "Macdonaldtown", "Newtown", "Stanmore", "Petersham", "Lewisham", "Summer Hill", "Ashfield", "Croydon", "Burwood", "Strathfield", "Homebush", "Flemington", "Lidcombe", "Auburn", "Clyde", "Granville", "Merrylands", "Guildford", "Yennora", "Fairfield", "Canley Vale", "Cabramatta", "Warwick Farm", "Liverpool", "Casula", "Glenfield", "Edmondson Park", "Leppington", "Harris Park", "Parramatta"]
+t3_loop = ["Circular Quay", "Wynyard", "Town Hall", "St James", "Museum"]
+t3_south = ["Redfern", "Erskineville", "St Peters", "Sydenham", "Marrickville", "Dulwich Hill", "Hurlstone Park", "Canterbury", "Campsie", "Belmore", "Lakemba", "Wiley Park", "Punchbowl", "Bankstown", "Yagoona", "Birrong", "Regents Park", "Berala", "Lidcombe", "Sefton", "Chester Hill", "Leightonfield", "Villawood", "Carramar", "Cabramatta", "Warwick Farm", "Liverpool"]
+t4_east = ["Bondi Junction", "Edgecliff", "Kings Cross", "Martin Place", "Town Hall"]
+t4_south = ["Redfern", "Sydenham", "Tempe", "Wolli Creek", "Arncliffe", "Banksia", "Rockdale", "Kogarah", "Carlton", "Allawah", "Hurstville", "Penshurst", "Mortdale", "Oatley", "Como", "Jannali", "Sutherland", "Loftus", "Engadine", "Heathcote", "Waterfall", "Kirrawee", "Gymea", "Miranda", "Caringbah", "Woolooware", "Cronulla"]
+t8_loop = ["Circular Quay", "Wynyard", "Town Hall", "St James", "Museum"]
+t8_south = ["Macarthur", "Campbelltown", "Leumeah", "Minto", "Ingleburn", "Macquarie Fields", "Glenfield", "Holsworthy", "East Hills", "Panania", "Revesby", "Padstow", "Riverwood", "Narwee", "Beverly Hills", "Kingsgrove", "Bexley North", "Bardwell Park", "Turrella", "Wolli Creek", "International Airport", "Domestic Airport", "Mascot", "Green Square", "Redfern", "St Peters", "Sydenham"]
+
+## for loop
+for df in dfs:
+    # first remove all stations that don't start at central
+    df = df[df['Orig..Station'] == 'Central']
+    # remove stations not in sydney region
+    df = df[df['Actual.Stop.Station'].isin(stations_on_map)]
+    # add platforms
+        # assign specific values for each combo
+    conditions = [
+        (df['line_code'] == 'T1') & (df['Actual.Stop.Station'].isin(t1_north)),
+        (df['line_code'] == 'T1') & (df['Actual.Stop.Station'].isin(t1_west)),
+        (df['line_code'] == 'T2') & (df['Actual.Stop.Station'].isin(t2_loop)),
+        (df['line_code'] == 'T2') & (df['Actual.Stop.Station'].isin(t2_west)),
+        (df['line_code'] == 'T3') & (df['Actual.Stop.Station'].isin(t3_loop)),
+        (df['line_code'] == 'T3') & (df['Actual.Stop.Station'].isin(t3_south)),
+        (df['line_code'] == 'T4') & (df['Actual.Stop.Station'].isin(t4_east)),
+        (df['line_code'] == 'T4') & (df['Actual.Stop.Station'].isin(t4_south)),
+        (df['line_code'] == 'T8') & (df['Actual.Stop.Station'].isin(t8_loop)),
+        (df['line_code'] == 'T8') & (df['Actual.Stop.Station'].isin(t8_south)),
+    ]
+    choices = [16,18,17,19,20,22,24,25, 21,23]
+    df['Platform_number'] = np.select(conditions, choices, default = 0)
+    # edit time - date
+    df['Actual.Station.Dprt.Time'] = pd.to_datetime(df['Actual.Station.Dprt.Time']) # converts strings into timestamp objects
+    df['Date_of_departure'] = df['Actual.Station.Dprt.Time'].dt.date # extract the date
+    df['Time_of_departure'] = df['Actual.Station.Dprt.Time'].dt.strftime('%H%M') # extract time, remove ':' and seconds (not included in times
+    # # remove times in ranges
+    #     # define the ranges
+    # night_remove = (df['Time_of_departure'] >= '2101') | (df['Time_of_departure'] <= '0559') # line means or, as it crosses midnight
+    # day_remove = (df['Time_of_departure'] >= '1201') & (df['Time_of_departure'] <= '1459') # and as it is continuous
+    #     # combine and filter df (note: ~ means NOT, which are rows dropped)
+    # df = df[~(night_remove | day_remove)].copy()
+    # remove unneccesary columns, rename and return cleaned
+    df = df[cols_to_keep].rename(columns = rename_map)
+    cleaned_dfs.append(df)
+
+# update original dfs
+nov_2018_df = cleaned_dfs[0]
+dec_2018_df = cleaned_dfs[1]
+jan_2019_df = cleaned_dfs[2]
+feb_2019_df = cleaned_dfs[3]
+
+display(nov_2018_df.head())
+
+dfs = [nov_2018_df, dec_2018_df, jan_2019_df, feb_2019_df] # to process
+df_names = ['nov_2018', 'dec_2018', 'jan_2019', 'feb_2019']
+processed_results = {}
+
+# common inputs
+user_time = input_data['Time']
+start_station = random_starting_station
+target_station = input_data['Target Station']
+time_window = 120  # 2 hours
+
+def find_closest_departures(df, user_time_str, time_window_minutes, start_station, target_station):
+    """
+    Filters the DataFrame based on Start/Target stations and a 2-hour time window.
+    """
+    # Step 1: Filter by Start_station and Target_station
+    # Using the exact casing from your provided image
+    df_filtered = df[
+        (df['Start_station'] == start_station) &
+        (df['Target_station'] == target_station)
+    ].copy()
+
+    if df_filtered.empty:
+        print(f"No departures found from {start_station} to {target_station}.")
+        return df_filtered
+
+    # Step 2: Time Filtering Logic
+    # Convert user's time string to datetime for comparison
+    user_time_dt = datetime.datetime.strptime(user_time_str, "%H%M")
+    target_end_dt = user_time_dt + datetime.timedelta(minutes=time_window_minutes)
+
+    # Convert the 'Time_of_departure' column to datetime objects
+    # We use .apply to handle the string comparison logic
+    df_filtered['departure_dt'] = df_filtered['Time_of_departure'].apply(
+        lambda x: datetime.datetime.strptime(x, "%H%M")
+    )
+
+    # Handle midnight wrap-around:
+    # If departure time is '0005' but user time is '2350', move departure to 'next day'
+    df_filtered['adjusted_dt'] = df_filtered['departure_dt'].apply(
+        lambda x: x if x >= user_time_dt else x + datetime.timedelta(days=1)
+    )
+
+    # Step 3: Apply the time window filter
+    final_df = df_filtered[
+        (df_filtered['adjusted_dt'] >= user_time_dt) &
+        (df_filtered['adjusted_dt'] < target_end_dt)
+    ].copy()
+
+    # Sort by the actual chronological time
+    final_df = final_df.sort_values(by='adjusted_dt').reset_index(drop=True)
+
+    # Remove the temporary datetime columns used for calculation
+    final_df = final_df.drop(columns=['departure_dt', 'adjusted_dt'])
+
+    return final_df
+
+# for loop
+for i in range(len(dfs)):
+    # Generate the output name (e.g., closest_data_nov_2018)
+    output_name = f"closest_data_{df_names[i]}"
+
+    print(f"Processing {df_names[i]}...")
+
+    # Run the function on the current DataFrame in the list
+    result_df = find_closest_departures(
+        dfs[i],
+        user_time,
+        time_window,
+        start_station,
+        target_station
+    )
+
+    # Store it in our dictionary
+    processed_results[output_name] = result_df
+
+# --- Accessing the results ---
+closest_nov_2018_df = processed_results['closest_data_nov_2018']
+closest_dec_2018_df = processed_results['closest_data_dec_2018']
+closest_jan_2019_df = processed_results['closest_data_jan_2019']
+closest_feb_2019_df = processed_results['closest_data_feb_2019']
+
+# You can now access them by their new "names"
+print(f"\nResults for Nov 2018: {len(processed_results['closest_data_nov_2018'])} rows.")
+display(closest_nov_2018_df.head())
+
+## Platform distances using synthetic data
+
+# import and filter all the data
+Central_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Central Platform Distances.csv")
+Redfern_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Redfern Platform Distances.csv")
+Chatswood_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Chatswood Platform Distances.csv")
+Lidcombe_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Lidcombe Platform Distances.csv")
+Parramatta_df = pd.read_csv(r"C:\Users\grace\Inputs\Platform_Distances\Paramatta Platform Distances.csv")
+
+
+# PROCESSING THE DATAFRAMES
+dfs = [Central_df, Redfern_df, Chatswood_df, Lidcombe_df, Parramatta_df]
+df_names = ['Central_df', 'Redfern_df', 'Chatswood_df', 'Lidcombe_df', 'Parramatta_df']
+
+for i, df in enumerate(dfs):
+    if 'Unnamed: 0' in df.columns:
+        dfs[i] = df.drop(columns=['Unnamed: 0'])
+
+# Update the original DataFrames with the modified versions
+Central_df = dfs[0]
+Redfern_df = dfs[1]
+Chatswood_df = dfs[2]
+Lidcombe_df = dfs[3]
+Parramatta_df = dfs[4]
+
+
+# FILTERING DATA TO 1-5 RANGE
+
+# 1. Consolidate all 'P' column data
+all_dfs_list = [
+    ('Central_df', Central_df),
+    ('Redfern_df', Redfern_df),
+    ('Chatswood_df', Chatswood_df),
+    ('Lidcombe_df', Lidcombe_df),
+    ('Parramatta_df', Parramatta_df)
+]
+
+all_p_values = []
+for df_name, df in all_dfs_list:
+    for col in df.columns:
+        if col.startswith('P') and pd.api.types.is_numeric_dtype(df[col]):
+            all_p_values.extend(df[col].dropna().tolist())
+
+if not all_p_values:
+    print("No 'P' columns with numeric data found across all DataFrames.")
+else:
+    all_p_series = pd.Series(all_p_values)
+
+    # 2. Calculate Global Statistics
+    global_mean = all_p_series.mean()
+    global_std = all_p_series.std()
+    print(f"Global Mean of 'P' values: {global_mean:.2f}")
+    print(f"Global Standard Deviation of 'P' values: {global_std:.2f}")
+
+    # 3. Define Scaling Parameters
+    # We'll define the scaling range based on +/- 2 standard deviations from the global mean
+    # Values outside this range will be capped at 1 or 5.
+    data_min_for_scaling = max(0, global_mean - 2 * global_std) # Ensure min is not negative
+    data_max_for_scaling = global_mean + 2 * global_std
+    scale_min = 1
+    scale_max = 5
+
+    print(f"Scaling data range: [{data_min_for_scaling:.2f}, {data_max_for_scaling:.2f}]")
+
+    # 4. Create Scaling Function
+    def get_scaled_range(value, data_min, data_max, scale_min, scale_max):
+        if data_max == data_min:
+            return (scale_min + scale_max) / 2 # Handle cases with no variance
+
+        # Cap value to the original data range for scaling
+        capped_value = max(data_min, min(value, data_max))
+
+        # Linear scaling to target range
+        scaled_value = scale_min + ((capped_value - data_min) / (data_max - data_min)) * (scale_max - scale_min)
+        return round(scaled_value)
+
+    # 5. Process Each Platform/Column and 6. Store the results
+    results = []
+    for df_name, df in all_dfs_list:
+        for col in df.columns:
+            if col.startswith('P') and pd.api.types.is_numeric_dtype(df[col]):
+                platform_mean = df[col].mean()
+                platform_std = df[col].std()
+                platform_range = get_scaled_range(platform_mean, data_min_for_scaling, data_max_for_scaling, scale_min, scale_max)
+                results.append({
+                    'DataFrame': df_name,
+                    'Platform': col,
+                    'Average Distance': f'{platform_mean:.2f}',
+                    'Standard Deviation': f'{platform_std:.2f}',
+                    'Scaled Range (1-5)': platform_range
+                })
+
+for df_name, df in all_dfs_list:
+    for col in df.columns:
+        if col.startswith('P') and pd.api.types.is_numeric_dtype(df[col]):
+            # Apply the scaling function to each value in the column
+            # Using .apply() with a lambda function for element-wise operation
+            df[col] = df[col].apply(lambda x: get_scaled_range(x, data_min_for_scaling, data_max_for_scaling, scale_min, scale_max))
+
+# Update the original DataFrames with the modified versions from the list
+Central_df = all_dfs_list[0][1]
+Redfern_df = all_dfs_list[1][1]
+Chatswood_df = all_dfs_list[2][1]
+Lidcombe_df = all_dfs_list[3][1]
+Parramatta_df = all_dfs_list[4][1]
+
+
+# displaying the data to ensure consistent results
+print("--- DataFrames with P-column values replaced by 1-5 Scaled Scores ---")
+print("Central DataFrame:")
+display(Central_df.head())
+print("\nRedfern DataFrame:")
+display(Redfern_df.head())
+print("\nChatswood DataFrame:")
+display(Chatswood_df.head())
+print("\nLidcombe DataFrame:")
+display(Lidcombe_df.head())
+print("\nParramatta DataFrame:")
+display(Parramatta_df.head())
+
+
+# Calculating scaled distance
+
+# for nov
+# Create a lookup dictionary for scaled platform distances (1-5)
+platform_distance_lookup = {}
+for entry in results:
+    station_name = entry['DataFrame'].replace('_df', '') # Convert 'central_df' to 'central'
+    platform_col_name = entry['Platform'] # e.g., 'P1'
+    platform_number = int(platform_col_name.replace('P', '')) # Extract number from 'P1'
+    scaled_range = entry['Scaled Range (1-5)']
+    platform_distance_lookup[(station_name, platform_number)] = scaled_range
+
+# Function to get the scaled platform distance for a given row
+def get_scaled_distance_for_departure(row):
+    start_st = row['Start_station']
+    platform_num = row['Platform_number']
+    return platform_distance_lookup.get((start_st, platform_num), np.nan) # Return NaN if not found
+
+# Apply the function to add a new column 'platform_scaled_distance' to the dataframe
+closest_nov_2018_df['Platform_number'] = pd.to_numeric(closest_nov_2018_df['Platform_number'], errors='coerce')
+closest_nov_2018_df['Platform_scaled_distance'] = closest_nov_2018_df.apply(get_scaled_distance_for_departure, axis=1)
+
+nov_2018_2_df = closest_nov_2018_df
+print("Closest Departures Historical DataFrame with Scaled Platform Distance:")
+display(nov_2018_2_df.head())
+
+# for dec
+# Create a lookup dictionary for scaled platform distances (1-5)
+platform_distance_lookup = {}
+for entry in results:
+    station_name = entry['DataFrame'].replace('_df', '') # Convert 'central_df' to 'central'
+    platform_col_name = entry['Platform'] # e.g., 'P1'
+    platform_number = int(platform_col_name.replace('P', '')) # Extract number from 'P1'
+    scaled_range = entry['Scaled Range (1-5)']
+    platform_distance_lookup[(station_name, platform_number)] = scaled_range
+
+# Function to get the scaled platform distance for a given row
+def get_scaled_distance_for_departure(row):
+    start_st = row['Start_station']
+    platform_num = row['Platform_number']
+    return platform_distance_lookup.get((start_st, platform_num), np.nan) # Return NaN if not found
+
+# Apply the function to add a new column 'platform_scaled_distance' to the dataframe
+closest_dec_2018_df['Platform_number'] = pd.to_numeric(closest_dec_2018_df['Platform_number'], errors='coerce')
+closest_dec_2018_df['Platform_scaled_distance'] = closest_dec_2018_df.apply(get_scaled_distance_for_departure, axis=1)
+
+dec_2018_2_df = closest_nov_2018_df
+print("Closest Departures Historical DataFrame with Scaled Platform Distance:")
+display(dec_2018_2_df.head())
+
+# for jan
+# Create a lookup dictionary for scaled platform distances (1-5)
+platform_distance_lookup = {}
+for entry in results:
+    station_name = entry['DataFrame'].replace('_df', '') # Convert 'central_df' to 'central'
+    platform_col_name = entry['Platform'] # e.g., 'P1'
+    platform_number = int(platform_col_name.replace('P', '')) # Extract number from 'P1'
+    scaled_range = entry['Scaled Range (1-5)']
+    platform_distance_lookup[(station_name, platform_number)] = scaled_range
+
+# Function to get the scaled platform distance for a given row
+def get_scaled_distance_for_departure(row):
+    start_st = row['Start_station']
+    platform_num = row['Platform_number']
+    return platform_distance_lookup.get((start_st, platform_num), np.nan) # Return NaN if not found
+
+# Apply the function to add a new column 'platform_scaled_distance' to the dataframe
+closest_jan_2019_df['Platform_number'] = pd.to_numeric(closest_jan_2019_df['Platform_number'], errors='coerce')
+closest_jan_2019_df['Platform_scaled_distance'] = closest_jan_2019_df.apply(get_scaled_distance_for_departure, axis=1)
+
+jan_2019_2_df = closest_jan_2019_df
+print("Closest Departures Historical DataFrame with Scaled Platform Distance:")
+display(jan_2019_2_df.head())
+
+# for feb
+# Create a lookup dictionary for scaled platform distances (1-5)
+platform_distance_lookup = {}
+for entry in results:
+    station_name = entry['DataFrame'].replace('_df', '') # Convert 'central_df' to 'central'
+    platform_col_name = entry['Platform'] # e.g., 'P1'
+    platform_number = int(platform_col_name.replace('P', '')) # Extract number from 'P1'
+    scaled_range = entry['Scaled Range (1-5)']
+    platform_distance_lookup[(station_name, platform_number)] = scaled_range
+
+# Function to get the scaled platform distance for a given row
+def get_scaled_distance_for_departure(row):
+    start_st = row['Start_station']
+    platform_num = row['Platform_number']
+    return platform_distance_lookup.get((start_st, platform_num), np.nan) # Return NaN if not found
+
+# Apply the function to add a new column 'platform_scaled_distance' to the dataframe
+closest_feb_2019_df['Platform_number'] = pd.to_numeric(closest_feb_2019_df['Platform_number'], errors='coerce')
+closest_feb_2019_df['Platform_scaled_distance'] = closest_feb_2019_df.apply(get_scaled_distance_for_departure, axis=1)
+
+feb_2019_2_df = closest_feb_2019_df
+print("Closest Departures Historical DataFrame with Scaled Platform Distance:")
+display(closest_feb_2019_df.head())
+
+## TIME CHANGES
+
+# for nov
+def calculate_time_score(time_str):
+  """
+  Calculates a time score (1-5) based on closeness to peak hours.
+  """
+  time_int = int(time_str)
+
+  # Assign scores based on time ranges: 6am-10am peak and 3-7pm peak
+  if 730 <= time_int < 830 or 1630 <= time_int < 1730:
+    return 5 # peak hour
+  elif 700 <= time_int < 730 or 830 <= time_int < 900 or 1600 <= time_int < 1630 or 1730 <= time_int < 1800:
+    return 4 # shoulder peak
+  elif 630 <= time_int < 700 or 900 <= time_int < 930 or 1530 <= time_int < 1600 or 1800 <= time_int < 1830:
+    return 3
+  elif 600 <= time_int < 630 or 930 <= time_int < 1000 or 1500 <= time_int < 1530 or 1830 <= time_int < 1900:
+    return 2
+  else:
+    return 1 # off-peak
+
+# Apply the time score function to the DataFrame
+nov_2018_2_df['Departure_time_score'] = nov_2018_2_df['Time_of_departure'].apply(calculate_time_score)
+
+nov_2018_3_df = nov_2018_2_df
+print("Closest Departures Historical DataFrame with Departure Time Score:")
+display(nov_2018_3_df.head())
+
+# for dec
+def calculate_time_score(time_str):
+  """
+  Calculates a time score (1-5) based on closeness to peak hours.
+  """
+  time_int = int(time_str)
+
+  # Assign scores based on time ranges: 6am-10am peak and 3-7pm peak
+  if 730 <= time_int < 830 or 1630 <= time_int < 1730:
+    return 5 # peak hour
+  elif 700 <= time_int < 730 or 830 <= time_int < 900 or 1600 <= time_int < 1630 or 1730 <= time_int < 1800:
+    return 4 # shoulder peak
+  elif 630 <= time_int < 700 or 900 <= time_int < 930 or 1530 <= time_int < 1600 or 1800 <= time_int < 1830:
+    return 3
+  elif 600 <= time_int < 630 or 930 <= time_int < 1000 or 1500 <= time_int < 1530 or 1830 <= time_int < 1900:
+    return 2
+  else:
+    return 1 # off-peak
+
+# Apply the time score function to the DataFrame
+dec_2018_2_df['Departure_time_score'] = dec_2018_2_df['Time_of_departure'].apply(calculate_time_score)
+
+dec_2018_3_df = dec_2018_2_df
+print("Closest Departures Historical DataFrame with Departure Time Score:")
+display(dec_2018_3_df.head())
+
+# for jan
+def calculate_time_score(time_str):
+  """
+  Calculates a time score (1-5) based on closeness to peak hours.
+  """
+  time_int = int(time_str)
+
+  # Assign scores based on time ranges: 6am-10am peak and 3-7pm peak
+  if 730 <= time_int < 830 or 1630 <= time_int < 1730:
+    return 5 # peak hour
+  elif 700 <= time_int < 730 or 830 <= time_int < 900 or 1600 <= time_int < 1630 or 1730 <= time_int < 1800:
+    return 4 # shoulder peak
+  elif 630 <= time_int < 700 or 900 <= time_int < 930 or 1530 <= time_int < 1600 or 1800 <= time_int < 1830:
+    return 3
+  elif 600 <= time_int < 630 or 930 <= time_int < 1000 or 1500 <= time_int < 1530 or 1830 <= time_int < 1900:
+    return 2
+  else:
+    return 1 # off-peak
+
+# Apply the time score function to the DataFrame
+jan_2019_2_df['Departure_time_score'] = jan_2019_2_df['Time_of_departure'].apply(calculate_time_score)
+
+jan_2019_3_df = jan_2019_2_df
+print("Closest Departures Historical DataFrame with Departure Time Score:")
+display(jan_2019_3_df.head())
+
+# for feb
+def calculate_time_score(time_str):
+  """
+  Calculates a time score (1-5) based on closeness to peak hours.
+  """
+  time_int = int(time_str)
+
+  # Assign scores based on time ranges: 6am-10am peak and 3-7pm peak
+  if 730 <= time_int < 830 or 1630 <= time_int < 1730:
+    return 5 # peak hour
+  elif 700 <= time_int < 730 or 830 <= time_int < 900 or 1600 <= time_int < 1630 or 1730 <= time_int < 1800:
+    return 4 # shoulder peak
+  elif 630 <= time_int < 700 or 900 <= time_int < 930 or 1530 <= time_int < 1600 or 1800 <= time_int < 1830:
+    return 3
+  elif 600 <= time_int < 630 or 930 <= time_int < 1000 or 1500 <= time_int < 1530 or 1830 <= time_int < 1900:
+    return 2
+  else:
+    return 1 # off-peak
+
+# Apply the time score function to the DataFrame
+feb_2019_2_df['Departure_time_score'] = feb_2019_2_df['Time_of_departure'].apply(calculate_time_score)
+
+feb_2019_3_df = feb_2019_2_df
+print("Closest Departures Historical DataFrame with Departure Time Score:")
+display(feb_2019_3_df.head())
+
+## POPULATION DENSITY
+
+# nov
+# Define the mapping for population density to scores
+pop_density_mapping = {
+    'Low: 0-399': 1,
+    'Medium: 400-799': 3,
+    'High: Standing Room Only': 5
+}
+
+# Apply the mapping to create the new 'pop_density_score' column
+nov_2018_3_df['Pop_density_score'] = nov_2018_3_df['Pop_density'].map(pop_density_mapping)
+
+nov_2018_4_df = nov_2018_3_df
+print("Closest Departures Historical DataFrame with Population Density Score:")
+display(nov_2018_4_df.head())
+
+
+# dec
+# Define the mapping for population density to scores
+pop_density_mapping = {
+    'Low: 0-399': 1,
+    'Medium: 400-799': 3,
+    'High: Standing Room Only': 5
+}
+
+# Apply the mapping to create the new 'pop_density_score' column
+dec_2018_3_df['Pop_density_score'] = dec_2018_3_df['Pop_density'].map(pop_density_mapping)
+
+dec_2018_4_df = dec_2018_3_df
+print("Closest Departures Historical DataFrame with Population Density Score:")
+display(dec_2018_4_df.head())
+
+# jan
+# Define the mapping for population density to scores
+pop_density_mapping = {
+    'Low: 0-399': 1,
+    'Medium: 400-799': 3,
+    'High: Standing Room Only': 5
+}
+
+# Apply the mapping to create the new 'pop_density_score' column
+jan_2019_3_df['Pop_density_score'] = jan_2019_3_df['Pop_density'].map(pop_density_mapping)
+
+jan_2019_4_df = jan_2019_3_df
+print("Closest Departures Historical DataFrame with Population Density Score:")
+display(jan_2019_4_df.head())
+
+# feb
+# Define the mapping for population density to scores
+pop_density_mapping = {
+    'Low: 0-399': 1,
+    'Medium: 400-799': 3,
+    'High: Standing Room Only': 5
+}
+
+# Apply the mapping to create the new 'pop_density_score' column
+feb_2019_3_df['Pop_density_score'] = feb_2019_3_df['Pop_density'].map(pop_density_mapping)
+
+feb_2019_4_df = feb_2019_3_df
+print("Closest Departures Historical DataFrame with Population Density Score:")
+display(feb_2019_4_df.head())
+
+## TIME DELAY
+# nov
+def calculate_delay_score(delay_minutes):
+    # Use absolute value to handle negative delay times
+    abs_delay = abs(delay_minutes)
+
+    if abs_delay == 0:
+        return 0
+    elif abs_delay <= 2:
+        return 1
+    elif abs_delay <= 4:
+        return 2
+    elif abs_delay <= 6:
+        return 3
+    elif abs_delay <= 8:
+        return 4
+    # Covers 25-30 and anything > 30
+    else:
+        return 5
+
+# Apply the delay score function to the DataFrame
+nov_2018_4_df['Delay_time_score'] = nov_2018_4_df['Delay_time (minutes)'].apply(calculate_delay_score)
+
+nov_2018_5_df = nov_2018_4_df
+print("Closest Departures Historical DataFrame with Delay Time Score:")
+display(nov_2018_5_df.head())
+
+# dec
+def calculate_delay_score(delay_minutes):
+    # Use absolute value to handle negative delay times
+    abs_delay = abs(delay_minutes)
+
+    if abs_delay == 0:
+        return 0
+    elif abs_delay <= 2:
+        return 1
+    elif abs_delay <= 4:
+        return 2
+    elif abs_delay <= 6:
+        return 3
+    elif abs_delay <= 8:
+        return 4
+    # Covers 25-30 and anything > 30
+    else:
+        return 5
+
+# Apply the delay score function to the DataFrame
+dec_2018_4_df['Delay_time_score'] = dec_2018_4_df['Delay_time (minutes)'].apply(calculate_delay_score)
+
+dec_2018_5_df = dec_2018_4_df
+print("Closest Departures Historical DataFrame with Delay Time Score:")
+display(dec_2018_5_df.head())
+
+# jan
+def calculate_delay_score(delay_minutes):
+    # Use absolute value to handle negative delay times
+    abs_delay = abs(delay_minutes)
+
+    if abs_delay == 0:
+        return 0
+    elif abs_delay <= 2:
+        return 1
+    elif abs_delay <= 4:
+        return 2
+    elif abs_delay <= 6:
+        return 3
+    elif abs_delay <= 8:
+        return 4
+    # Covers 25-30 and anything > 30
+    else:
+        return 5
+
+# Apply the delay score function to the DataFrame
+jan_2019_4_df['Delay_time_score'] = jan_2019_4_df['Delay_time (minutes)'].apply(calculate_delay_score)
+
+jan_2019_5_df = jan_2019_4_df
+print("Closest Departures Historical DataFrame with Delay Time Score:")
+display(jan_2019_5_df.head())
+
+# feb
+def calculate_delay_score(delay_minutes):
+    # Use absolute value to handle negative delay times
+    abs_delay = abs(delay_minutes)
+
+    if abs_delay == 0:
+        return 0
+    elif abs_delay <= 2:
+        return 1
+    elif abs_delay <= 4:
+        return 2
+    elif abs_delay <= 6:
+        return 3
+    elif abs_delay <= 8:
+        return 4
+    # Covers 25-30 and anything > 30
+    else:
+        return 5
+
+# Apply the delay score function to the DataFrame
+feb_2019_4_df['Delay_time_score'] = feb_2019_4_df['Delay_time (minutes)'].apply(calculate_delay_score)
+
+feb_2019_5_df = feb_2019_4_df
+print("Closest Departures Historical DataFrame with Delay Time Score:")
+display(feb_2019_5_df.head())
+
+nov_2018_5_df = nov_2018_5_df.drop(columns=['distance_results'], errors='ignore')
+dec_2018_5_df = dec_2018_5_df.drop(columns=['distance_results'], errors='ignore')
+jan_2019_5_df = jan_2019_5_df.drop(columns=['distance_results'], errors='ignore')
+feb_2019_5_df = feb_2019_5_df.drop(columns=['distance_results'], errors='ignore')
+
+# adding extrance column
+nov_2018_5_df['Entrance'] = input_data['Location']
+dec_2018_5_df['Entrance'] = input_data['Location']
+jan_2019_5_df['Entrance'] = input_data['Location']
+feb_2019_5_df['Entrance'] = input_data['Location']
+
+# nov and save
+# Get the NDD from user input
+user_ndd = input_data['NDD']
+
+def calculate_sss_score(row, user_ndd):
+    cluster_1 = ['asd', 'tourettes', 'chronic tic disorders', 'sensory processing disorder']
+    cluster_2 = ['stutter', 'speech sound disorder']
+    cluster_3 = ['adhd', 'dyslexia', 'learning disorder']
+    cluster_4 = ['dcd', 'down syndrome', 'intellectual disorder']
+
+    pop_density_score = row['Pop_density_score']
+    departure_time_score = row['Departure_time_score']
+    platform_scaled_distance = row['Platform_scaled_distance']
+    delay_time_score = row['Delay_time_score']
+
+    if user_ndd in cluster_1:
+        return 0.35 * pop_density_score + 0.25 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_2:
+        return 0.3 * pop_density_score + 0.2 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_3:
+        return 0.1 * pop_density_score + 0.2 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_4:
+        return 0.15 * pop_density_score + 0.1 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    else:
+        return np.nan # Or some default score if NDD not found in any cluster
+
+# Apply the SSS score calculation to the DataFrame
+nov_2018_5_df['SSS_score'] = nov_2018_5_df.apply(lambda row: calculate_sss_score(row, user_ndd), axis=1)
+
+print("Closest Departures Historical DataFrame with SSS Score:")
+display(nov_2018_5_df.head())
+
+nov_2018_5_df.to_csv(r'C:\Users\grace\Inputs\FINAL SSS RESULTS\ nov_2018_cluster1.csv', index=False)
+
+
+
+
+# dec and save
+# Get the NDD from user input
+user_ndd = input_data['NDD']
+
+def calculate_sss_score(row, user_ndd):
+    cluster_1 = ['asd', 'tourettes', 'chronic tic disorders', 'sensory processing disorder']
+    cluster_2 = ['stutter', 'speech sound disorder']
+    cluster_3 = ['adhd', 'dyslexia', 'learning disorder']
+    cluster_4 = ['dcd', 'down syndrome', 'intellectual disorder']
+
+    pop_density_score = row['Pop_density_score']
+    departure_time_score = row['Departure_time_score']
+    platform_scaled_distance = row['Platform_scaled_distance']
+    delay_time_score = row['Delay_time_score']
+
+    if user_ndd in cluster_1:
+        return 0.35 * pop_density_score + 0.25 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_2:
+        return 0.3 * pop_density_score + 0.2 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_3:
+        return 0.1 * pop_density_score + 0.2 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_4:
+        return 0.15 * pop_density_score + 0.1 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    else:
+        return np.nan # Or some default score if NDD not found in any cluster
+
+# Apply the SSS score calculation to the DataFrame
+dec_2018_5_df['SSS_score'] = dec_2018_5_df.apply(lambda row: calculate_sss_score(row, user_ndd), axis=1)
+
+print("Closest Departures Historical DataFrame with SSS Score:")
+display(dec_2018_5_df.head())
+
+dec_2018_5_df.to_csv(r'C:\Users\grace\Inputs\FINAL SSS RESULTS\ dec_2018_cluster1.csv', index=False)
+
+
+# jan and save
+# Get the NDD from user input
+user_ndd = input_data['NDD']
+
+def calculate_sss_score(row, user_ndd):
+    cluster_1 = ['asd', 'tourettes', 'chronic tic disorders', 'sensory processing disorder']
+    cluster_2 = ['stutter', 'speech sound disorder']
+    cluster_3 = ['adhd', 'dyslexia', 'learning disorder']
+    cluster_4 = ['dcd', 'down syndrome', 'intellectual disorder']
+
+    pop_density_score = row['Pop_density_score']
+    departure_time_score = row['Departure_time_score']
+    platform_scaled_distance = row['Platform_scaled_distance']
+    delay_time_score = row['Delay_time_score']
+
+    if user_ndd in cluster_1:
+        return 0.35 * pop_density_score + 0.25 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_2:
+        return 0.3 * pop_density_score + 0.2 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_3:
+        return 0.1 * pop_density_score + 0.2 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_4:
+        return 0.15 * pop_density_score + 0.1 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    else:
+        return np.nan # Or some default score if NDD not found in any cluster
+
+# Apply the SSS score calculation to the DataFrame
+jan_2019_5_df['SSS_score'] = jan_2019_5_df.apply(lambda row: calculate_sss_score(row, user_ndd), axis=1)
+
+print("Closest Departures Historical DataFrame with SSS Score:")
+display(jan_2019_5_df.head())
+
+jan_2019_5_df.to_csv(r'C:\Users\grace\Inputs\FINAL SSS RESULTS\ jan_2019_cluster1.csv', index=False)
+
+
+# feb and save
+# Get the NDD from user input
+user_ndd = input_data['NDD']
+
+def calculate_sss_score(row, user_ndd):
+    cluster_1 = ['asd', 'tourettes', 'chronic tic disorders', 'sensory processing disorder']
+    cluster_2 = ['stutter', 'speech sound disorder']
+    cluster_3 = ['adhd', 'dyslexia', 'learning disorder']
+    cluster_4 = ['dcd', 'down syndrome', 'intellectual disorder']
+
+    pop_density_score = row['Pop_density_score']
+    departure_time_score = row['Departure_time_score']
+    platform_scaled_distance = row['Platform_scaled_distance']
+    delay_time_score = row['Delay_time_score']
+
+    if user_ndd in cluster_1:
+        return 0.35 * pop_density_score + 0.25 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_2:
+        return 0.3 * pop_density_score + 0.2 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_3:
+        return 0.1 * pop_density_score + 0.2 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    elif user_ndd in cluster_4:
+        return 0.15 * pop_density_score + 0.1 * departure_time_score + 0.3 * platform_scaled_distance + 0.1 * delay_time_score
+    else:
+        return np.nan # Or some default score if NDD not found in any cluster
+
+# Apply the SSS score calculation to the DataFrame
+feb_2019_5_df['SSS_score'] = feb_2019_5_df.apply(lambda row: calculate_sss_score(row, user_ndd), axis=1)
+
+print("Closest Departures Historical DataFrame with SSS Score:")
+display(feb_2019_5_df.head())
+
+feb_2019_5_df.to_csv(r'C:\Users\grace\Inputs\FINAL SSS RESULTS\ feb_2019_cluster1.csv', index=False)
