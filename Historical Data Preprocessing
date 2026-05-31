@@ -1,0 +1,184 @@
+import pandas as pd
+import zipfile
+from pathlib import Path
+import tempfile
+import os 
+ 
+# -----------------------------
+# CONFIG
+# -----------------------------
+zip_folder = Path("central_feb_2019_zip")  # <-- change this
+output_file = "[V2]central_feb_2019_cleaned_train_data.csv"
+
+VALID_LINES = {"T1", "T2", "T3", "T4", "T8", "T9"}
+
+DROP_COLUMNS = [
+    "New.Trip.Name",
+    "Trip.Name",
+    "Leading.Set.Type"
+]
+
+# -----------------------------
+# STEP 1: Extract + Read Excel Files
+# -----------------------------
+all_dfs = []
+
+for zip_path in zip_folder.glob("*.zip"):
+    with zipfile.ZipFile(zip_path, 'r') as z:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            z.extractall(tmpdir)
+
+            for file in Path(tmpdir).rglob("*.xlsx"):
+                df = pd.read_excel(file)
+                df.columns = df.columns.str.strip()
+                df["source_file"] = zip_path.name 
+                all_dfs.append(df)
+
+# Combine everything
+df = pd.concat(all_dfs, ignore_index=True)
+
+print(f"Loaded {len(df)} rows")
+
+# -----------------------------
+# STEP 2: Drop unnecessary columns
+# -----------------------------
+df = df.drop(columns=DROP_COLUMNS, errors="ignore")
+
+# -----------------------------
+# STEP 3: Clean Service.Line
+# -----------------------------
+
+line_map = {
+    "North Shore": "T1",
+    "West": "T1",
+    "North": "T1",
+    "North  via  Strathfield": "T1",
+
+    "Inner West": "T2",
+    "Leppington": "T2",
+
+    "Bankstown": "T3",
+
+    "Eastern Suburbs": "T4",
+    "Illawarra": "T4",
+    "Illawarra to Sydney": "T4",
+
+    "Airport": "T8",
+    "East Hills": "T8",
+    "South": "T8",
+
+    # likely not needed for your selected lines
+    "Cumberland": "T5",
+    "Carlingford Shuttle": "T6",
+    "Olympic Park East/North": "T7",
+    "Olympic Park West/South": "T7",
+}
+
+df["Service.Line"] = df["Service.Line"].astype(str).str.strip()
+df["line_code"] = df["Service.Line"].map(line_map)
+
+print(df["Service.Line"].value_counts(dropna=False).head(30))
+print(df["line_code"].value_counts(dropna=False))
+
+VALID_LINES = {"T1", "T2", "T3", "T4", "T8", "T9"}
+
+df["Service.Line"] = df["Service.Line"].astype(str).str.strip()
+
+# Keep only required lines
+df = df[df["line_code"].isin(VALID_LINES)].copy()
+
+print(f"After filtering lines: {len(df)} rows")
+
+if df.empty:
+    raise ValueError("No rows left after Service.Line filtering. Check Service.Line values.")
+
+# -----------------------------
+# STEP 4: Clean Actual Departure Time
+# -----------------------------
+df["Actual.Station.Dprt.Time"] = pd.to_datetime(
+    df["Actual.Station.Dprt.Time"],
+    format="%d/%b/%y %I:%M:%S.%f %p",
+    errors="coerce"
+)
+
+# Drop rows where time failed
+df = df.dropna(subset=["Actual.Station.Dprt.Time"])
+
+# -----------------------------
+# STEP 5: Process Time Bands
+# -----------------------------
+
+df[["band_start", "band_end"]] = (
+    df["Actual.Station.Dprt.Time.Band"]
+    .astype(str)
+    .str.split("-", n=1, expand=True)
+)
+
+# -----------------------------
+# STEP 6: Attach Date to Bands
+# -----------------------------
+actual_date = df["Actual.Station.Dprt.Time"].dt.strftime("%Y-%m-%d")
+
+df["band_start_dt"] = pd.to_datetime(
+    actual_date + " " + df["band_start"],
+    errors="coerce"
+)
+
+df["band_end_dt"] = pd.to_datetime(
+    actual_date + " " + df["band_end"],
+    errors="coerce"
+)
+
+# -----------------------------
+# STEP 7: Fix Midnight Edge Case
+# -----------------------------
+# If end < start → crossed midnight
+mask = df["band_end_dt"] < df["band_start_dt"]
+
+df.loc[mask, "band_end_dt"] += pd.Timedelta(days=1)
+
+# -----------------------------
+# STEP 8: Compute Midpoint
+# -----------------------------
+df["band_midpoint"] = df["band_start_dt"] + (
+    (df["band_end_dt"] - df["band_start_dt"]) / 2
+)
+
+# -----------------------------
+# STEP 9: Compute Delay
+# -----------------------------
+df["delay_seconds"] = (
+    df["Actual.Station.Dprt.Time"] - df["band_midpoint"]
+).dt.total_seconds()
+
+df["delay_minutes"] = df["delay_seconds"] / 60
+
+df["is_late"] = df["delay_minutes"] > 0
+
+# -----------------------------
+# STEP 10: Final Clean Columns
+# -----------------------------
+final_columns = [
+    "Orig..Station",              # <-- add this
+    "Actual.Stop.Station",
+    "Service.Line",
+    "line_code",
+    "Occupancy Range",
+    "Actual.Station.Dprt.Time",
+    "band_start_dt",
+    "band_end_dt",
+    "band_midpoint",
+    "delay_seconds",
+    "delay_minutes",
+    "is_late",
+    "source_file"
+]
+
+df_final = df[final_columns]
+
+# -----------------------------
+# STEP 11: Export
+# -----------------------------
+df_final.to_csv(output_file, index=False)
+
+print(f"Saved to {output_file}")
